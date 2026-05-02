@@ -78,15 +78,13 @@ const navbarClasses = computed(() => {
       </button>
 
       <div class="collapse navbar-collapse" id="navbarKofan">
-        <ul class="navbar-nav mx-auto mb-2 mb-lg-0 fw-medium">
+        <ul class="navbar-nav me-auto ms-4 mb-2 mb-lg-0 fw-medium">
           <li class="nav-item">
-            <router-link :to="{ name: 'hospedaje-home' }" class="nav-link" exact-active-class="active-link">Inicio</router-link>
+            <router-link :to="{ name: 'hospedaje-home' }" class="nav-link" exact-active-class="active-link">Hospedaje</router-link>
           </li>
+        
           <li class="nav-item">
             <router-link :to="{ name: 'about' }" class="nav-link" active-class="active-link">Nosotros</router-link>
-          </li>
-          <li class="nav-item">
-            <router-link :to="{ name: 'rooms' }" class="nav-link" active-class="active-link">Alojamientos</router-link>
           </li>
           <li class="nav-item">
             <router-link :to="{ name: 'gallery' }" class="nav-link" active-class="active-link">Galería</router-link>
@@ -94,15 +92,11 @@ const navbarClasses = computed(() => {
         </ul>
 
         <div class="d-lg-flex align-items-center gap-3">
-          <button class="btn btn-success rounded-pill px-4 d-none d-xl-block fw-bold" @click="router.push({ name: 'contact' })">
-            Contáctanos
-          </button>
-
           <div v-if="!auth.isLogged" class="d-flex align-items-center gap-2">
-            <router-link :to="{ name: 'login' }" class="btn-ingresar-kofan">
-              Ingresar
-            </router-link>
-            <router-link :to="{ name: 'register' }" class="btn btn-success btn-sm px-3 rounded-pill">
+            <router-link :to="{ name: 'login' }" class="nav-link bg-transparent border-0 shadow-none text-white px-3">
+            Ingresar
+          </router-link>
+            <router-link :to="{ name: 'register' }" class="nav-link bg-transparent border-0 shadow-none text-white px-3">
               Registrarse
             </router-link>
           </div>
@@ -230,19 +224,4 @@ const navbarClasses = computed(() => {
 .active-link::after { width: 80% !important; }
 .active-link { color: var(--k-apple) !important; }
 
-.btn-ingresar-kofan {
-  color: var(--k-cream) !important;
-  text-decoration: none;
-  font-weight: 500;
-  padding: 5px 15px;
-  border: 1px solid rgba(255,255,255,0.4);
-  border-radius: 999px;
-  transition: all 0.3s;
-  background: transparent;
-}
-
-.btn-ingresar-kofan:hover {
-  border-color: var(--k-apple);
-  background: rgba(255, 255, 255, 0.1);
-}
 </style>

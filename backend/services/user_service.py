@@ -72,3 +72,28 @@ async def get_all_users_service(skip: int = 0, limit: int = 50):
         user.pop("password", None) 
         
     return users
+
+
+
+async def link_guest_bookings_to_user(email: str, user_id: str):
+    """
+    Busca todas las reservas hechas con este correo que no tengan 
+    un usuario asignado y las vincula al nuevo user_id.
+    """
+   
+    email_limpio = email.strip().lower()
+
+    filtro_correo = {"$regex": f"^{email_limpio}$", "$options": "i"}
+
+    result = await db.bookings.update_many(
+        {
+            "cliente_email": filtro_correo,  # 🟢 Usamos el campo correcto de tu BD
+            "cliente_id": {"$in": [None, ""]} # 🟢 Usamos el campo correcto de tu BD
+        },
+        {
+            "$set": {
+                "cliente_id": ObjectId(user_id)        # 🟢 Inyectamos el nuevo ID aquí
+            }
+        }
+    )
+    return result.modified_count

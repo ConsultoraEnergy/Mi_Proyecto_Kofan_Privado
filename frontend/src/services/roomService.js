@@ -1,5 +1,4 @@
 import apiClient from '@/api/apiClient';
-
 // 1. CREAR (Con múltiples imágenes/FormData)
 export const createRoom = async (roomDetails, imageFilesArray) => {
   const formData = new FormData();
@@ -98,4 +97,17 @@ export const addRoomImages = async (roomId, files) => {
 export const getRoomLogs = async (page = 1, limit = 8) => {
   const response = await apiClient.get(`/rooms/logs/history?page=${page}&limit=${limit}`);
   return response.data;
+};
+
+export const searchAvailableRoom = async (tipo, entrada, salida, huespedes) => {
+  const response = await apiClient.get('/busqueda/disponibilidad', {
+    params: {
+      tipo: tipo,
+      entrada: entrada,
+      salida: salida,
+      huespedes: huespedes
+    }
+  });
+  
+  return response; 
 };

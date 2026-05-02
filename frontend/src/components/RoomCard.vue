@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { useReservaStore } from "@/stores/reserva";
 
 const props = defineProps({
   habitacion: {
@@ -9,11 +10,14 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['reservar']);
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
+// Estado para el hover y el modal
+const isHovered = ref(false);
+const mostrarDetalles = ref(false); 
 const indiceFotoActiva = ref(0);
-const mostrarLightbox = ref(false); 
 
+// --- LÓGICA DE IMÁGENES ---
 const imagenes = computed(() => {
   if (props.habitacion.images && props.habitacion.images.length > 0) {
     return props.habitacion.images.slice(0, 5).map(img => `${API_BASE_URL}${img}`);
@@ -26,6 +30,19 @@ const imagenes = computed(() => {
 
 const fotoPrincipal = computed(() => imagenes.value[indiceFotoActiva.value]);
 
+const siguienteFoto = () => {
+  if (imagenes.value.length > 1) {
+    indiceFotoActiva.value = (indiceFotoActiva.value + 1) % imagenes.value.length;
+  }
+};
+
+const anteriorFoto = () => {
+  if (imagenes.value.length > 1) {
+    indiceFotoActiva.value = (indiceFotoActiva.value - 1 + imagenes.value.length) % imagenes.value.length;
+  }
+};
+
+// --- DATOS Y FORMATEO ---
 const mapaIconos = {
   "Aire Acondicionado": ["fas", "snowflake"],
   "Ventilador": ["fas", "fan"],
@@ -46,123 +63,122 @@ const formatPrice = (v) => {
   return (v || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 };
 
-const handleReservar = () => { emit('reservar', props.habitacion); };
-
-const siguienteFoto = () => {
-  if (imagenes.value.length > 1) {
-    indiceFotoActiva.value = (indiceFotoActiva.value + 1) % imagenes.value.length;
-  }
+// --- ACCIONES ---
+const handleReservar = () => { 
+  cerrarDetalles(); // 🟢 ¡Esto cierra el modal visualmente Y devuelve el scroll!
+  
+  resStore.habitacionSeleccionada = props.habitacion; 
+  resStore.isModalOpen = true; 
 };
 
-const anteriorFoto = () => {
-  if (imagenes.value.length > 1) {
-    indiceFotoActiva.value = (indiceFotoActiva.value - 1 + imagenes.value.length) % imagenes.value.length;
-  }
+const abrirDetalles = () => { 
+  mostrarDetalles.value = true; 
+  document.body.style.overflow = 'hidden'; 
 };
 
-const abrirLightbox = () => { mostrarLightbox.value = true; };
-const cerrarLightbox = () => { mostrarLightbox.value = false; };
+const cerrarDetalles = () => { 
+  mostrarDetalles.value = false; 
+  document.body.style.overflow = 'auto'; 
+};
+const resStore = useReservaStore();
+// Agrega esto al final de tu <script setup> en RoomCard.vue
+  defineExpose({ 
+  abrirDetalles, 
+  habitacion: props.habitacion 
+});
 </script>
 
 <template>
   <div>
-    
-    <div class="card habitacion-premium shadow-lg border-0 rounded-4 overflow-hidden mb-5">
-      <div class="row g-0 align-items-stretch">
+    <div 
+      class="minimalist-item h-100 d-flex flex-column"
+      @mouseenter="isHovered = true" 
+      @mouseleave="isHovered = false"
+    >
+      <div class="image-square position-relative bg-dark shadow-sm">
+        <img :src="imagenes[0]" class="w-100 h-100 foto-cover" :alt="habitacion.name">
         
-        <div class="col-lg-5 p-0 position-relative galeria-wrapper overflow-hidden">
-          <div class="position-absolute w-100 h-100 top-0 start-0 z-0 bg-dark pointer-cursor" @click="abrirLightbox">
-            <img :src="fotoPrincipal" class="foto-principal w-100 h-100" :alt="habitacion.name">
-          </div>
-          
-          <div class="position-absolute top-0 start-0 m-3 d-flex gap-2 z-1">
-            <span class="badge bg-success bg-opacity-75 rounded-pill px-3 py-2 shadow-sm fs-badge">
-               Hasta {{ habitacion.capacity }} pers.
-            </span>
-          </div>
-
-          <button v-if="imagenes.length > 1" @click.stop="anteriorFoto" class="btn-desplazador-fino position-absolute top-50 start-0 translate-middle-y ms-3 z-1">
-            <font-awesome-icon :icon="['fas', 'chevron-left']" class="fs-4" />
+        <div class="hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" :class="{ 'show-overlay': isHovered }">
+          <button @click="abrirDetalles" class="btn btn-light rounded-0 px-4 py-2 fw-bold shadow-sm btn-explorar">
+            <font-awesome-icon :icon="['fas', 'eye']" class="me-2 text-success" /> Ver Detalles
           </button>
-          
-          <button v-if="imagenes.length > 1" @click.stop="siguienteFoto" class="btn-desplazador-fino position-absolute top-50 end-0 translate-middle-y me-3 z-1">
-            <font-awesome-icon :icon="['fas', 'chevron-right']" class="fs-4" />
+        </div>
+      </div>
+
+      <div class="info-block mt-3 d-flex flex-column flex-grow-1">
+        <h3 class="titulo-minimalista fw-bold mb-3 text-truncate">{{ habitacion.name }}</h3>
+        
+        <div class="mt-auto d-flex justify-content-between align-items-end">
+          <div>
+            <span class="precio-destacado fw-bold">{{ formatPrice(habitacion.price) }}</span>
+            <span class="text-muted small"> /noche</span>
+          </div>
+          <button @click="handleReservar" class="btn btn-link p-0 btn-reservar-link text-decoration-none fw-bold">
+            Reservar <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-1 small" />
           </button>
-
-          <div class="position-absolute bottom-0 end-0 m-3 z-1 lupa-icono pointer-cursor" @click="abrirLightbox">
-            <font-awesome-icon :icon="['fas', 'magnifying-glass']" class="fs-5 lupa-tono-suave" />
-          </div>
         </div>
-
-        <div class="col-lg-7">
-          <div class="card-body p-4 p-xl-5 h-100 d-flex flex-column z-1 position-relative bg-white">
-            
-            <div class="encabezado mb-3 pb-3 border-bottom border-light">
-              <h2 class="titulo-habitacion fw-bold mb-2">{{ habitacion.name }}</h2>
-              <p class="text-muted mb-1 descripcion-corta text-truncate-2">{{ habitacion.description }}</p>
-              
-              <div v-if="habitacion.num_cuartos || habitacion.tipo_camas" class="info-distribucion mt-2 d-flex align-items-center flex-wrap text-muted" style="font-size: 0.9rem;">
-                <span v-if="habitacion.num_cuartos" class="d-flex align-items-center">
-                  <font-awesome-icon :icon="['fas', 'door-open']" class="text-success opacity-75 me-1 fs-6" /> 
-                  <span class="fw-medium">{{ habitacion.num_cuartos }} Hab.</span>
-                </span>
-                <span v-if="habitacion.num_cuartos && habitacion.tipo_camas" class="mx-2 opacity-50">•</span>
-                <span v-if="habitacion.tipo_camas" class="d-flex align-items-center">
-                  <font-awesome-icon :icon="['fas', 'moon']" class="text-success opacity-75 me-1" /> 
-                  <span>{{ habitacion.tipo_camas }}</span>
-                </span>
-              </div>
-            </div>
-
-            <div class="amenidades-minimalistas mb-4 flex-grow-1">
-              <div class="row row-cols-2 row-cols-md-3 g-3">
-                <template v-if="amenidadesSeguras.length > 0">
-                  <div v-for="(amenidad, index) in amenidadesSeguras" :key="index" class="col amenidad-item">
-                    <font-awesome-icon :icon="mapaIconos[amenidad] || ['fas', 'check']" class="icono-fino" />
-                    <span class="small">{{ amenidad }}</span>
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="col-12 text-muted fst-italic small">Detalles básicos incluidos. Consulta en recepción.</div>
-                </template>
-              </div>
-            </div>
-
-            <div class="mt-auto pt-4 border-top border-light d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
-              <div class="precio-bloque">
-                <p class="mb-0 text-muted fw-bold small text-uppercase" style="letter-spacing: 1px;">Desde</p>
-                <div class="d-flex align-items-baseline gap-2">
-                  <span class="h2 fw-bold mb-0" style="color: #0f3b2a;">{{ formatPrice(habitacion.price) }}</span>
-                  <span class="text-muted small">/ noche</span>
-                </div>
-              </div>
-              <div>
-                <button @click="handleReservar" class="btn btn-reservar-pequeno">
-                  Reservar <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-1 icono-flecha" />
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
       </div>
     </div>
 
-    <div v-if="mostrarLightbox" class="lightbox-overlay" @click="cerrarLightbox">
-      <div class="lightbox-content position-relative" @click.stop>
-        <img :src="fotoPrincipal" class="img-fluid rounded lightbox-image shadow-lg">
+    <div v-if="mostrarDetalles" class="modal-overlay d-flex justify-content-center align-items-center" @click.self="cerrarDetalles">
+      <div class="modal-kofan bg-white rounded-0 overflow-hidden shadow-lg d-flex flex-column flex-lg-row position-relative">
         
-        <button v-if="imagenes.length > 1" @click="anteriorFoto" class="btn-lightbox-nav btn-lightbox-prev position-absolute top-50 start-0 translate-middle-y ms-3">
-          <font-awesome-icon :icon="['fas', 'chevron-left']" class="fs-2 text-white" />
-        </button>
-        <button v-if="imagenes.length > 1" @click="siguienteFoto" class="btn-lightbox-nav btn-lightbox-next position-absolute top-50 end-0 translate-middle-y me-3">
-          <font-awesome-icon :icon="['fas', 'chevron-right']" class="fs-2 text-white" />
+        <button class="btn-close-modal position-absolute top-0 end-0 m-3 z-3 bg-white rounded-circle shadow-sm" @click="cerrarDetalles">
+          <font-awesome-icon :icon="['fas', 'xmark']" class="fs-5 text-dark" />
         </button>
 
-        <button @click="cerrarLightbox" class="position-absolute top-0 end-0 m-3 btn-close-lightbox border-0 bg-transparent">
-          <font-awesome-icon :icon="['fas', 'xmark']" class="fs-4 text-white p-2 rounded-circle bg-dark bg-opacity-25 shadow" />
-        </button>
+        <div class="modal-gallery col-12 col-lg-6 position-relative bg-dark">
+          <img :src="fotoPrincipal" class="w-100 h-100 foto-cover" :alt="habitacion.name">
+          
+          <button v-if="imagenes.length > 1" @click="anteriorFoto" class="btn-nav-modal position-absolute top-50 start-0 translate-middle-y ms-3">
+            <font-awesome-icon :icon="['fas', 'chevron-left']" class="fs-3 text-white drop-shadow" />
+          </button>
+          <button v-if="imagenes.length > 1" @click="siguienteFoto" class="btn-nav-modal position-absolute top-50 end-0 translate-middle-y me-3">
+            <font-awesome-icon :icon="['fas', 'chevron-right']" class="fs-3 text-white drop-shadow" />
+          </button>
+        </div>
+
+        <div class="modal-info col-12 col-lg-6 p-4 p-lg-5 d-flex flex-column overflow-y-auto">
+          <h2 class="titulo-modal fw-bold mb-3">{{ habitacion.name }}</h2>
+          
+          <div class="d-flex flex-wrap gap-3 mb-4 text-muted small">
+            <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-0">
+              <font-awesome-icon :icon="['fas', 'user-group']" class="me-1" /> Hasta {{ habitacion.capacity }} personas
+            </span>
+            <span v-if="habitacion.num_cuartos" class="d-flex align-items-center">
+              <font-awesome-icon :icon="['fas', 'door-open']" class="me-1" /> {{ habitacion.num_cuartos }} Hab.
+            </span>
+            <span v-if="habitacion.tipo_camas" class="d-flex align-items-center">
+              <font-awesome-icon :icon="['fas', 'moon']" class="me-1" /> {{ habitacion.tipo_camas }}
+            </span>
+          </div>
+
+          <p class="descripcion-modal text-muted mb-4">{{ habitacion.description }}</p>
+
+          <h5 class="fw-bold mb-3">Servicios incluidos</h5>
+          <div class="row row-cols-2 g-3 mb-4 flex-grow-1">
+            <template v-if="amenidadesSeguras.length > 0">
+              <div v-for="(amenidad, index) in amenidadesSeguras" :key="index" class="col d-flex align-items-center text-muted small">
+                <font-awesome-icon :icon="mapaIconos[amenidad] || ['fas', 'check']" class="text-success me-2 fs-6" />
+                {{ amenidad }}
+              </div>
+            </template>
+            <template v-else>
+              <div class="col-12 text-muted fst-italic small">Detalles básicos incluidos. Consulta en recepción.</div>
+            </template>
+          </div>
+
+          <div class="mt-auto pt-4 border-top d-flex justify-content-between align-items-center">
+            <div>
+              <p class="mb-0 text-muted small text-uppercase" style="letter-spacing: 1px;">Precio por noche</p>
+              <span class="fs-3 fw-bold text-success-kofan">{{ formatPrice(habitacion.price) }}</span>
+            </div>
+            <button @click="handleReservar" class="btn btn-reservar-modal px-4 py-2 rounded-0 shadow-sm fw-bold">
+              Reservar ahora <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-2" />
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -170,87 +186,169 @@ const cerrarLightbox = () => { mostrarLightbox.value = false; };
 </template>
 
 <style scoped>
-.habitacion-premium { transition: transform 0.3s ease; }
-.habitacion-premium:hover { transform: translateY(-5px); }
+/* ================================
+   ESTILOS ITEM MINIMALISTA (Libre de marco)
+================================ */
+.minimalist-item {
+  transition: transform 0.3s ease;
+}
+.minimalist-item:hover {
+  transform: translateY(-4px); 
+}
 
-.titulo-habitacion { font-size: 2.1rem; color: #0f3b2a; letter-spacing: -0.5px; line-height: 1.1; }
+.image-square {
+  aspect-ratio: 4/3; /* ESTO HACE QUE EL CONTENEDOR SEA UN CUADRADO PERFECTO */
+  overflow: hidden;
+  border-radius: 0 !important; /* BORDES TOTALMENTE RECTOS */
+}
+.foto-cover {
+  object-fit: cover;
+}
 
-.fs-badge { font-size: 0.85rem; font-weight: 500; }
+.info-block {
+  background: transparent; 
+  padding: 0 4px; 
+}
 
-.galeria-wrapper { min-height: 280px; }
-.foto-principal { object-fit: cover; transition: opacity 0.3s ease; }
+.hover-overlay {
+  background: rgba(15, 59, 42, 0.4); 
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none; 
+}
+.show-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
 
-/* 🟢 NUEVOS ESTILOS PARA LOS DESPLAZADORES (SOLO ICONO Y MÁS GRANDES) */
-.btn-desplazador-fino {
+.btn-explorar {
+  transform: translateY(15px);
+  transition: transform 0.3s ease, background-color 0.2s;
+  color: #0f3b2a;
+  border-radius: 0 !important; 
+}
+.show-overlay .btn-explorar {
+  transform: translateY(0);
+}
+.btn-explorar:hover {
+  background-color: #f8f9fa;
+}
+
+.titulo-minimalista {
+  font-size: 1.2rem;
+  color: #0f3b2a;
+  text-transform: uppercase; 
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.precio-destacado {
+  color: #0f3b2a;
+  font-size: 1.15rem;
+}
+
+.btn-reservar-link {
+  color: #114232;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+.btn-reservar-link:hover {
+  color: #1a5c46;
+  transform: translateX(3px); 
+}
+
+/* ================================
+   ESTILOS DEL MODAL DE DETALLES
+================================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(3px);
+  z-index: 9999;
+  padding: 20px;
+}
+
+.modal-kofan {
+  width: 100%;
+  max-width: 1000px;
+  max-height: 90vh;
+  animation: modalFadeIn 0.3s ease-out forwards;
+}
+
+.modal-gallery {
+  min-height: 300px;
+}
+
+.modal-info {
+  background-color: #fafaf9; 
+  max-height: 90vh;
+}
+
+.titulo-modal {
+  color: #0f3b2a;
+  font-family: 'Handlee', cursive;
+  font-size: 2rem;
+}
+
+.descripcion-modal {
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
+.text-success-kofan {
+  color: #114232;
+}
+
+.btn-reservar-modal {
+  background-color: #114232;
+  color: white;
   border: none;
-  background-color: transparent; /* Sin contenedor */
-  color: #f1f1f1; /* Tono hueso suave (off-white) */
-  padding: 0;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.btn-reservar-modal:hover {
+  background-color: #1a5c46;
+  transform: translateY(-2px);
+}
+
+.btn-nav-modal {
+  border: none;
+  background: transparent;
+  padding: 10px;
+  transition: transform 0.2s;
+}
+.btn-nav-modal:hover {
+  transform: scale(1.2);
+}
+.drop-shadow {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+}
+
+.btn-close-modal {
+  border: none;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  opacity: 0.7; /* Sutil por defecto */
+  transition: transform 0.2s ease;
 }
-.btn-desplazador-fino:hover {
-  color: #ffffff; /* Blanco puro en hover */
-  transform: translateY(-50%) scale(1.1); /* Sutil crecimiento */
-  opacity: 1;
+.btn-close-modal:hover {
+  transform: rotate(90deg) scale(1.1);
+  background-color: #f8d7da !important;
+  color: #dc3545 !important;
 }
 
-/* 🟢 NUEVOS ESTILOS PARA LA LUPA (SOLO ICONO) */
-.lupa-icono i {
-  transition: all 0.3s ease;
-  padding: 5px; /* Sutil padding para área de clic */
-}
-.lupa-icono:hover i {
-  transform: scale(1.1);
-}
-.lupa-tono-suave {
-  color: #e0e0e0; /* Tono integrado súper suave */
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.amenidades-minimalistas { font-size: 0.95rem; color: #555; }
-.amenidad-item { display: flex; align-items: center; }
-.icono-fino { color: #2ecc71; margin-right: 8px; font-size: 1.1rem; }
-
-.descripcion-corta { font-size: 1.0rem; line-height: 1.4; color: #666 !important; }
-.text-truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* Botón Premium Pequeño y Cuadrado Suave */
-.btn-reservar-pequeno {
-  background-color: #114232; 
-  color: #ffffff;
-  border: none;
-  padding: 0.6rem 1.4rem; 
-  font-size: 1rem;
-  font-weight: 500;
-  border-radius: 8px; /* Cuadrado con bordes suaves */
-  transition: all 0.3s ease;
-}
-.btn-reservar-pequeno:hover {
-  background-color: #1a5c46; 
-  color: #ffffff;
-  transform: translateY(-2px); 
-  box-shadow: 0 4px 12px rgba(17, 66, 50, 0.3); 
-}
-.icono-flecha { transition: transform 0.3s ease; }
-.btn-reservar-pequeno:hover .icono-flecha { transform: translateX(4px); }
-
-.pointer-cursor { cursor: pointer; }
-
-/* LIGHTBOX (Sin cambios) */
-.lightbox-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.lightbox-content { max-width: 90vw; max-height: 90vh; }
-.lightbox-image { max-width: 100%; max-height: 100vh; object-fit: contain; }
-.btn-lightbox-nav { border: none; background-color: transparent; cursor: pointer; transition: transform 0.2s ease; }
-.btn-lightbox-nav:hover { transform: scale(1.1); }
-.btn-close-lightbox { opacity: 0.7; transition: opacity 0.2s ease; }
-.btn-close-lightbox:hover { opacity: 1; }
-
-@media (max-width: 991.98px) {
-  .galeria-wrapper { min-height: 250px; }
-  .titulo-habitacion { font-size: 1.6rem; }
+@media (max-width: 991px) {
+  .modal-kofan { flex-direction: column; max-height: 95vh; }
+  .modal-gallery { height: 250px; min-height: 250px; flex-shrink: 0; }
+  .modal-info { flex-grow: 1; overflow-y: auto; }
 }
 </style>
