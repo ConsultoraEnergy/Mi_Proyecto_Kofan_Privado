@@ -1,9 +1,10 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import Swal from "sweetalert2";
-import apiClient from "@/api/apiClient";
-
-import ImageUploader from "@/components/ImageUploader.vue"; 
+import { errorMessage } from "@/api/apiClient";
+import { listGallery, uploadGalleryImage, deleteGalleryImage } from "@/api/content";
+import { assetUrl } from "@/config/env";
+import ImageUploader from "@/components/ImageUploader.vue";
 
 const fotos = ref([]);
 const isLoading = ref(false);
@@ -14,18 +15,25 @@ const filtroActivo = ref("todos");
 
 const archivosParaSubir = ref([]);
 const uploaderRef = ref(null);
+const tituloFotos = ref("");
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const fotoUrl = (url) => `${BASE_URL}${url}`;
+// Categorías = slugs en minúscula (los mismos que filtra la galería pública).
+const categorias = [
+  { value: "naturaleza",    label: "Naturaleza" },
+  { value: "experiencias",  label: "Experiencias" },
+  { value: "instalaciones", label: "Habitaciones e Instalaciones" },
+  { value: "eventos",       label: "Eventos" },
+];
+const categoriaSeleccionada = ref("instalaciones");
+
+const etiquetaCategoria = (valor) => categorias.find((c) => c.value === valor)?.label || "General";
 
 const cargarFotos = async (categoria = "todos") => {
   isLoading.value = true;
   try {
-    const params = categoria !== "todos" ? `?categoria=${categoria}` : "";
-    const { data } = await apiClient.get(`/gallery/${params}`);
-    fotos.value = data;
-  } catch {
-    Swal.fire({ icon: "error", title: "Error", text: "No se pudieron cargar las fotos.", confirmButtonColor: "#0f3b2a" });
+    fotos.value = await listGallery(categoria === "todos" ? null : categoria);
+  } catch (error) {
+    Swal.fire({ icon: "error", title: "Error", text: errorMessage(error, "No se pudieron cargar las fotos."), confirmButtonColor: "#0f3b2a" });
   } finally {
     isLoading.value = false;
   }
@@ -33,8 +41,9 @@ const cargarFotos = async (categoria = "todos") => {
 
 const cancelarUpload = () => {
   mostrarFormulario.value = false;
-  if (uploaderRef.value) uploaderRef.value.reset(); 
+  if (uploaderRef.value) uploaderRef.value.reset();
   archivosParaSubir.value = [];
+  tituloFotos.value = "";
 };
 
 const subirFotosBatch = async () => {
@@ -42,30 +51,32 @@ const subirFotosBatch = async () => {
   isUploading.value = true;
 
   try {
-    const peticiones = archivosParaSubir.value.map(file => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("categoria", categoriaSeleccionada.value);
+    const resultados = await Promise.allSettled(
+      archivosParaSubir.value.map((file) =>
+        uploadGalleryImage(file, categoriaSeleccionada.value, tituloFotos.value.trim()),
+      ),
+    );
+    const fallidas = resultados.filter((r) => r.status === "rejected");
+    const subidas = resultados.length - fallidas.length;
 
-      return apiClient.post("/gallery/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+    if (fallidas.length) {
+      await Swal.fire({
+        icon: subidas ? "warning" : "error",
+        title: subidas ? `Se subieron ${subidas} de ${resultados.length} fotos` : "Error al subir",
+        text: errorMessage(fallidas[0].reason, "Hubo un problema con una o más fotos."),
+        confirmButtonColor: "#0f3b2a",
       });
-    });
+    } else {
+      await Swal.fire({
+        icon: "success",
+        title: `¡${subidas} foto(s) subida(s) correctamente!`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
 
-    await Promise.all(peticiones);
-
-    await Swal.fire({
-      icon: "success",
-      title: `¡${archivosParaSubir.value.length} foto(s) subida(s) a la velocidad de la luz!`,
-      timer: 2000,
-      showConfirmButton: false
-    });
-    
     cancelarUpload();
-    cargarFotos(filtroActivo.value); 
-    
-  } catch (error) {
-    Swal.fire({ icon: "error", title: "Error al subir", text: "Hubo un problema con una o más fotos.", confirmButtonColor: "#0f3b2a" });
+    cargarFotos(filtroActivo.value);
   } finally {
     isUploading.value = false;
   }
@@ -87,27 +98,25 @@ const confirmarEliminar = async (foto) => {
 
   eliminando.value = foto.id;
   try {
-    await apiClient.delete(`/gallery/${foto.id}`);
+    await deleteGalleryImage(foto.id);
     fotos.value = fotos.value.filter(f => f.id !== foto.id);
     Swal.fire({ icon: "success", title: "Foto eliminada", timer: 1500, showConfirmButton: false });
-  } catch {
-    Swal.fire({ icon: "error", title: "Error", text: "No se pudo eliminar la foto.", confirmButtonColor: "#0f3b2a" });
+  } catch (error) {
+    Swal.fire({ icon: "error", title: "Error", text: errorMessage(error, "No se pudo eliminar la foto."), confirmButtonColor: "#0f3b2a" });
   } finally {
     eliminando.value = null;
   }
 };
 
-const categoriaSeleccionada = ref("instalaciones"); 
-
-const categorias = [
-  { value: "naturaleza",    label: "Naturaleza" },
-  { value: "experiencias",  label: "Experiencias" },
-  { value: "instalaciones", label: "Cabañas e Instalaciones" },
-  { value: "eventos",       label: "Eventos" },
-];
 const cambiarFiltro = (cat) => {
   filtroActivo.value = cat;
-  cargarFotos(cat); 
+  cargarFotos(cat);
+};
+
+const SIN_ARCHIVO = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22400%22%20height%3D%22220%22%3E%3Crect%20width%3D%22400%22%20height%3D%22220%22%20fill%3D%22%23f8d7da%22%2F%3E%3Ctext%20x%3D%22200%22%20y%3D%22115%22%20text-anchor%3D%22middle%22%20fill%3D%22%23842029%22%20font-family%3D%22Arial%22%20font-size%3D%2218%22%3EArchivo%20faltante%3C%2Ftext%3E%3C%2Fsvg%3E";
+const onImagenError = (event) => {
+  event.target.onerror = null;
+  event.target.src = SIN_ARCHIVO;
 };
 
 onMounted(() => cargarFotos());
@@ -118,11 +127,11 @@ onMounted(() => cargarFotos());
 
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
-        <h3 class="fw-bold verde-kofan mb-0">Gestión de Galería</h3>
-        <p class="text-muted small mb-0">Administra las fotos públicas del Ecohotel</p>
+        <h3 class="fw-bold verde-brand mb-0">Gestión de Galería</h3>
+        <p class="text-muted small mb-0">Administra las fotos públicas del hotel</p>
       </div>
-      <button class="btn btn-kofan px-4" @click="mostrarFormulario = true" v-if="!mostrarFormulario">
-        <font-awesome-icon :icon="['fas', 'plus']" class="me-2" />
+      <button class="btn btn-brand px-4" @click="mostrarFormulario = true" v-if="!mostrarFormulario">
+        <font-awesome-icon icon="fa-solid fa-plus" class="me-2" />
         Subir Fotos
       </button>
     </div>
@@ -132,7 +141,7 @@ onMounted(() => cargarFotos());
         v-for="cat in [{ value: 'todos', label: 'Todos' }, ...categorias]"
         :key="cat.value"
         class="btn px-4 rounded-pill transition-all"
-        :class="filtroActivo === cat.value ? 'btn-kofan text-white shadow-sm' : 'btn-outline-success'"
+        :class="filtroActivo === cat.value ? 'btn-brand text-white shadow-sm' : 'btn-outline-success'"
         @click="cambiarFiltro(cat.value)"
       >
         {{ cat.label }}
@@ -143,15 +152,22 @@ onMounted(() => cargarFotos());
     </div>
 
     <div v-if="mostrarFormulario" class="upload-card mb-4 p-4 shadow-sm bg-white rounded-4 border">
-      <h5 class="fw-bold verde-kofan mb-4">Agregar Nuevas Fotos</h5>
-      
-      <div class="mb-4 w-100" style="max-width: 400px;">
-        <label class="form-label fw-bold text-dark">¿A qué categoría pertenecen estas fotos?</label>
-        <select v-model="categoriaSeleccionada" class="form-select form-select-lg border-success-subtle shadow-sm">
-          <option v-for="cat in categorias" :key="cat.value" :value="cat.value">
-            {{ cat.label }}
-          </option>
-        </select>
+      <h5 class="fw-bold verde-brand mb-4">Agregar Nuevas Fotos</h5>
+
+      <div class="row g-3 mb-4">
+        <div class="col-md-6" style="max-width: 400px;">
+          <label class="form-label fw-bold text-dark">¿A qué categoría pertenecen estas fotos?</label>
+          <select v-model="categoriaSeleccionada" class="form-select form-select-lg border-success-subtle shadow-sm">
+            <option v-for="cat in categorias" :key="cat.value" :value="cat.value">
+              {{ cat.label }}
+            </option>
+          </select>
+        </div>
+        <div class="col-md-6" style="max-width: 400px;">
+          <label class="form-label fw-bold text-dark">Título (opcional)</label>
+          <input v-model="tituloFotos" type="text" class="form-control form-control-lg brand-input" maxlength="120"
+                 placeholder="Ej: Atardecer en el río" />
+        </div>
       </div>
 
       <ImageUploader
@@ -164,7 +180,7 @@ onMounted(() => cargarFotos());
 
       <div class="d-flex gap-2 mt-4 justify-content-end border-top pt-3">
         <button class="btn btn-outline-secondary px-4" @click="cancelarUpload">Cancelar</button>
-        <button class="btn btn-kofan px-5 fw-bold" @click="subirFotosBatch" :disabled="isUploading || archivosParaSubir.length === 0">
+        <button class="btn btn-brand px-5 fw-bold" @click="subirFotosBatch" :disabled="isUploading || archivosParaSubir.length === 0">
           <span v-if="isUploading" class="spinner-border spinner-border-sm me-2"></span>
           {{ isUploading ? 'Subiendo...' : 'Guardar Fotos' }}
         </button>
@@ -177,7 +193,7 @@ onMounted(() => cargarFotos());
     </div>
 
     <div v-else-if="fotos.length === 0 && !mostrarFormulario" class="empty-state text-center py-5 bg-light rounded-4 border border-dashed mt-3">
-      <font-awesome-icon :icon="['fas', 'images']" class="fs-1 text-muted mb-3 d-block mx-auto opacity-50" />
+      <font-awesome-icon icon="fa-solid fa-images" class="fs-1 text-muted mb-3 d-block mx-auto opacity-50" />
       <h5 class="text-muted fw-bold">No hay fotos aquí</h5>
       <p class="text-muted small">Selecciona otra categoría o sube nuevas imágenes.</p>
     </div>
@@ -185,28 +201,28 @@ onMounted(() => cargarFotos());
     <div v-else-if="!mostrarFormulario" class="row g-3 mt-2">
       <div v-for="foto in fotos" :key="foto.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
         <div class="gallery-item position-relative mb-2 h-100">
-          
+
           <img
-            :src="fotoUrl(foto.url)"
-            :alt="foto.titulo" 
+            :src="assetUrl(foto.url)"
+            :alt="foto.title || etiquetaCategoria(foto.category)"
             class="img-fluid rounded-4 shadow-sm w-100 object-fit-cover"
             style="height: 220px;"
-            @error="$event.target.src='https://placehold.co/400x220/f8d7da/842029?text=Archivo+Faltante'"
+            @error="onImagenError"
           />
-          
+
           <div class="acciones-flotantes position-absolute top-0 w-100 p-2 d-flex justify-content-between align-items-start" style="left: 0;">
             <span class="badge bg-dark bg-opacity-75 text-white border border-secondary shadow-sm">
-              {{ categorias.find(c => c.value === foto.categoria)?.label || 'General' }}
+              {{ etiquetaCategoria(foto.category) }}
             </span>
-            
+
             <button class="btn btn-danger btn-sm rounded-circle shadow transition-all hover-scale" @click="confirmarEliminar(foto)" :disabled="eliminando === foto.id" title="Eliminar foto">
               <span v-if="eliminando === foto.id" class="spinner-border spinner-border-sm"></span>
-              <font-awesome-icon v-else :icon="['fas', 'trash']" />
+              <font-awesome-icon v-else icon="fa-solid fa-trash" />
             </button>
           </div>
 
           <div class="mt-2 text-truncate small fw-semibold text-secondary text-center px-2">
-            {{ foto.titulo }}
+            {{ foto.title }}
           </div>
 
         </div>
@@ -215,7 +231,6 @@ onMounted(() => cargarFotos());
 
   </div>
 </template>
-
 
 <style scoped>
 .gallery-manager {
@@ -229,7 +244,6 @@ onMounted(() => cargarFotos());
   width: 100%;
 }
 
-.verde-kofan { color: #0f3b2a; }
 
 .upload-card {
   background: #fff;
@@ -237,14 +251,14 @@ onMounted(() => cargarFotos());
   border: 1px solid #e0e0e0;
 }
 
-.kofan-input {
+.brand-input {
   border-radius: 10px;
   border: 1px solid #e0e0e0;
   padding: 10px 15px;
   background: #fdfdfd;
 }
 
-.kofan-input:focus {
+.brand-input:focus {
   border-color: #0f3b2a;
   box-shadow: 0 0 0 0.2rem rgba(15, 59, 42, 0.1);
 }
@@ -275,7 +289,7 @@ onMounted(() => cargarFotos());
   object-fit: cover;
 }
 
-.btn-kofan {
+.btn-brand {
   background-color: #0f3b2a;
   color: white;
   border: none;
@@ -284,14 +298,14 @@ onMounted(() => cargarFotos());
   transition: all 0.3s;
 }
 
-.btn-kofan:hover:not(:disabled) {
+.btn-brand:hover:not(:disabled) {
   background-color: #1a5c43;
   transform: translateY(-1px);
 }
 
-.btn-kofan:disabled { opacity: 0.7; cursor: not-allowed; }
+.btn-brand:disabled { opacity: 0.7; cursor: not-allowed; }
 
-.btn-outline-kofan {
+.btn-outline-brand {
   border: 1px solid #0f3b2a;
   color: #0f3b2a;
   background: transparent;
@@ -300,7 +314,7 @@ onMounted(() => cargarFotos());
   transition: all 0.2s;
 }
 
-.btn-outline-kofan:hover {
+.btn-outline-brand:hover {
   background: #f0fdf4;
 }
 

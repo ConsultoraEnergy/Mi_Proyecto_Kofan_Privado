@@ -3,10 +3,9 @@
     <section class="about-hero">
       <div class="container text-center">
         <span class="subtitulo-blanco">Nuestra Esencia</span>
-        <h1 class="titulo-hero">Somos Ecohotel Kofán</h1>
+        <h1 class="titulo-hero">Somos {{ configStore.hotelName }}</h1>
         <p class="lead-text">
-          Un refugio nacido del respeto por la selva y el deseo de preservar los
-          saberes ancestrales del Putumayo.
+          {{ configStore.data.tagline || "Un refugio pensado para descansar y conectar con la naturaleza." }}
         </p>
       </div>
 
@@ -29,11 +28,7 @@
                 <font-awesome-icon icon="fa-solid fa-seedling" />
               </div>
               <h3>Nuestra Misión</h3>
-              <p>
-                Ofrecer una experiencia de hospedaje que equilibre el confort
-                moderno con la conservación ambiental, promoviendo el
-                intercambio cultural y el respeto por el ecosistema amazónico.
-              </p>
+              <p class="texto-config">{{ mision }}</p>
             </div>
           </div>
           <div class="col-md-6">
@@ -42,11 +37,7 @@
                 <font-awesome-icon icon="fa-solid fa-eye" />
               </div>
               <h3>Nuestra Visión</h3>
-              <p>
-                Para el 2030, ser el ecohotel líder en el sur de Colombia,
-                reconocido por nuestro modelo de turismo regenerativo y por ser
-                guardianes activos de la cultura Kofán.
-              </p>
+              <p class="texto-config">{{ vision }}</p>
             </div>
           </div>
         </div>
@@ -58,24 +49,14 @@
         <div class="row align-items-center">
           <div class="col-lg-6">
             <img
-              src="@/img/entradaKofan.jpg"
-              alt="Cultura Kofán"
+              src="@/img/ancestral.jpg"
+              :alt="configStore.hotelName"
               class="img-fluid rounded-4 shadow-lg mb-4"
             />
           </div>
           <div class="col-lg-6">
             <h2 class="titulo-seccion">Más que un hotel, un compromiso</h2>
-            <p>
-              Ubicados en el corazón de Puerto Asís, el Ecohotel Kofán nació
-              como un proyecto familiar destinado a mostrar la cara más
-              auténtica del Putumayo. Creemos en un turismo que no solo visita,
-              sino que cuida y aprende.
-            </p>
-            <p>
-              Nuestras instalaciones están diseñadas para minimizar la huella de
-              carbono, utilizando materiales de la región y apoyando el comercio
-              local.
-            </p>
+            <p class="texto-config">{{ descripcion }}</p>
           </div>
         </div>
       </div>
@@ -115,7 +96,7 @@
             </div>
             <h4>Identidad</h4>
             <p>
-              Honramos y difundimos la riqueza cultural de la comunidad Kofán.
+              Honramos y difundimos la riqueza cultural de nuestra región.
             </p>
           </div>
 
@@ -144,7 +125,7 @@
           <div class="col-lg-8">
             <div
               class="accordion accordion-flush custom-accordion"
-              id="accordionKofan"
+              id="accordionBrand"
             >
               <div class="accordion-item shadow-sm mb-3">
                 <h2 class="accordion-header">
@@ -160,7 +141,7 @@
                 <div
                   id="faq1"
                   class="accordion-collapse collapse"
-                  data-bs-parent="#accordionKofan"
+                  data-bs-parent="#accordionBrand"
                 >
                   <div class="accordion-body">
                     Recomendamos ropa ligera y transpirable, preferiblemente de
@@ -185,7 +166,7 @@
                 <div
                   id="faq2"
                   class="accordion-collapse collapse"
-                  data-bs-parent="#accordionKofan"
+                  data-bs-parent="#accordionBrand"
                 >
                   <div class="accordion-body">
                     Sí, contamos con conexión Wi-Fi de alta velocidad en las
@@ -209,12 +190,12 @@
                 <div
                   id="faq3"
                   class="accordion-collapse collapse"
-                  data-bs-parent="#accordionKofan"
+                  data-bs-parent="#accordionBrand"
                 >
                   <div class="accordion-body">
                     Puedes cancelar tu reserva con hasta 72 horas de
-                    anticipación para recibir un reembolso parcial. El depósito
-                    del 25% inicial no es reembolsable, pero puede ser
+                    anticipación para recibir un reembolso parcial. El anticipo
+                    del {{ configStore.data.deposit_percent }}% no es reembolsable, pero puede ser
                     reprogramado para una fecha futura según disponibilidad.
                   </div>
                 </div>
@@ -232,10 +213,10 @@
             <span class="etiqueta-verde">Turismo Regenerativo</span>
             <h2 class="titulo-impacto">Guardianes de la Selva</h2>
             <p class="descripcion-impacto">
-              En Ecohotel Kofán, entendemos que somos huéspedes de la
+              En {{ configStore.hotelName }}, entendemos que somos huéspedes de la
               naturaleza. Nuestra operación está diseñada para devolverle a la
               tierra más de lo que tomamos, apoyando directamente a la
-              biodiversidad del Putumayo y a las familias de Puerto Asís.
+              biodiversidad y a las familias de la región.
             </p>
 
             <div class="lista-compromisos">
@@ -300,7 +281,7 @@
           <div class="carousel-item-img">
             <img
               src="@/img/eventos1.jpg"
-              alt="Amanecer en el Muelle del Kofán"
+              alt="Amanecer en el muelle"
             />
           </div>
           <div class="carousel-item-img">
@@ -312,7 +293,7 @@
           <div class="carousel-item-img">
             <img
               src="@/img/eventos2.jpg"
-              alt="Paseo en Canoa por el Río Putumayo"
+              alt="Paseo en canoa por el río"
             />
           </div>
           <div class="carousel-item-img">
@@ -331,7 +312,7 @@
           <div class="carousel-item-img">
             <img
               src="@/img/eventos1.jpg"
-              alt="Amanecer en el Muelle del Kofán"
+              alt="Amanecer en el muelle"
             />
           </div>
           <div class="carousel-item-img">
@@ -343,7 +324,7 @@
           <div class="carousel-item-img">
             <img
               src="@/img/eventos2.jpg"
-              alt="Paseo en Canoa por el Río Putumayo"
+              alt="Paseo en canoa por el río"
             />
           </div>
           <div class="carousel-item-img">
@@ -364,7 +345,31 @@
   </main>
 </template>
 
+<script setup>
+import { computed } from "vue";
+import { useConfigStore } from "@/stores/config";
+
+const configStore = useConfigStore();
+
+// Textos institucionales editables desde el panel (ajustes del sitio).
+const descripcion = computed(
+  () =>
+    configStore.data.about_description ||
+    `${configStore.hotelName} es un lugar para descansar, compartir y disfrutar de una atención cercana.`,
+);
+const mision = computed(
+  () => configStore.data.mission || "Ofrecer una experiencia de hospedaje cómoda, cercana y respetuosa con el entorno.",
+);
+const vision = computed(
+  () => configStore.data.vision || "Ser un referente de hospitalidad reconocido por la calidad de nuestro servicio.",
+);
+</script>
+
 <style scoped>
+.texto-config {
+  white-space: pre-line;
+}
+
 /* Hero de la página About */
 .about-hero {
   position: relative;

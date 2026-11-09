@@ -1,70 +1,107 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { fetchConfig, saveConfig, uploadLogo } from '@/services/configService';
-import defaultLogo from '@/img/Kofan.png';
+import { errorMessage } from '@/api/apiClient';
+import { getSiteSettings, updateSiteSettings, uploadLogo } from '@/api/content';
+import { assetUrl } from '@/config/env';
+import { useConfigStore } from '@/stores/config';
+
+const configStore = useConfigStore();
+
+// Claves exactas que acepta PUT /settings (logo_url y deposit_percent no se envían).
+const SETTINGS_KEYS = [
+  'hotel_name', 'tagline', 'contact_email', 'phone', 'whatsapp_number', 'address', 'city', 'country',
+  'check_in_time', 'check_out_time', 'currency', 'tax_percentage', 'social_facebook', 'social_instagram',
+  'social_tiktok', 'payment_instructions', 'about_description', 'mission', 'vision',
+];
 
 const isLoading = ref(true);
 const isSaving = ref(false);
+const isUploadingLogo = ref(false);
 const message = ref({ text: '', type: '' });
 const fileInput = ref(null);
-
-const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+let messageTimer = null;
 
 const config = ref({
-  hotel_name: 'Kofán Hospedaje',
+  hotel_name: '',
+  tagline: '',
   logo_url: '',
   contact_email: '',
   phone: '',
+  whatsapp_number: '',
   address: '',
+  city: '',
+  country: 'Colombia',
   check_in_time: '15:00',
   check_out_time: '11:00',
   currency: 'COP',
+  tax_percentage: 0,
   social_facebook: '',
   social_instagram: '',
-  social_tiktok: "",
-  whatsapp_number: "",
-  tax_percentage: 0
+  social_tiktok: '',
+  payment_instructions: '',
+  about_description: '',
+  mission: '',
+  vision: '',
 });
+
+const showMessage = (text, type) => {
+  message.value = { text, type };
+  clearTimeout(messageTimer);
+  messageTimer = setTimeout(() => (message.value.text = ''), 4000);
+};
 
 const handleLogoUpload = async (event) => {
   const file = event.target.files[0];
+  event.target.value = '';
   if (!file) return;
 
-  const formData = new FormData();
-  formData.append('file', file);
-
+  isUploadingLogo.value = true;
   try {
-    const res = await uploadLogo(formData);
-    config.value.logo_url = res.logo_url;
-    message.value = { text: 'Perfecto, la imagen del hotel ya está actualizada.', type: 'success' };
+    const result = await uploadLogo(file);
+    config.value.logo_url = result.logo_url;
+    configStore.setData(result);
+    showMessage('Perfecto, el logo del hotel ya está actualizado.', 'success');
   } catch (error) {
-    message.value = { text: 'No pudimos actualizar la imagen por ahora. Inténtalo nuevamente.', type: 'danger' };
+    showMessage(errorMessage(error, 'No pudimos actualizar la imagen por ahora. Inténtalo nuevamente.'), 'danger');
+  } finally {
+    isUploadingLogo.value = false;
   }
 };
 
 const loadSettings = async () => {
   try {
-    const data = await fetchConfig();
+    const data = await getSiteSettings();
     if (data) config.value = { ...config.value, ...data };
   } catch (error) {
-    console.error("Error cargando configuración", error);
+    showMessage(errorMessage(error, 'No se pudo cargar la configuración del hotel.'), 'danger');
   } finally {
     isLoading.value = false;
   }
 };
 
+const buildPayload = () => {
+  const payload = {};
+  SETTINGS_KEYS.forEach((key) => {
+    const value = config.value[key];
+    payload[key] = typeof value === 'string' ? value.trim() : value;
+  });
+  payload.tax_percentage = Number(payload.tax_percentage) || 0;
+  return payload;
+};
+
 const handleSave = async () => {
   isSaving.value = true;
   message.value = { text: '', type: '' };
-  
+
   try {
-    await saveConfig(config.value);
-    message.value = { text: 'Listo 🌿 Los cambios quedaron guardados correctamente.', type: 'success' };
+    const result = await updateSiteSettings(buildPayload());
+    config.value = { ...config.value, ...result };
+    configStore.setData(result);
+    showMessage('Listo, los cambios quedaron guardados correctamente.', 'success');
   } catch (error) {
-    message.value = { text: 'No pudimos guardar por ahora. Tus datos siguen seguros; intentemos nuevamente.', type: 'danger' };
+    showMessage(errorMessage(error, 'No pudimos guardar por ahora. Tus datos siguen seguros; intentemos nuevamente.'), 'danger');
   } finally {
     isSaving.value = false;
-    setTimeout(() => message.value.text = '', 3500);
   }
 };
 
@@ -76,11 +113,11 @@ onMounted(loadSettings);
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
       <div>
         <p class="brand-handmade mb-1">Detalles que acompañan cada bienvenida</p>
-        <h2 class="fw-bold section-title text-kofan mb-0"><font-awesome-icon icon="fa-solid fa-hotel" class="me-2" />Configuración del Hotel</h2>
+        <h2 class="fw-bold section-title text-brand mb-0"><font-awesome-icon icon="fa-solid fa-hotel" class="me-2" />Configuración del Hotel</h2>
       </div>
-      <button 
-        @click="handleSave" 
-        class="btn btn-kofan px-4 shadow-sm" 
+      <button
+        @click="handleSave"
+        class="btn btn-brand px-4 shadow-sm"
         :disabled="isSaving || isLoading"
       >
         <span v-if="isSaving" class="spinner-border spinner-border-sm me-2"></span>
@@ -94,7 +131,7 @@ onMounted(loadSettings);
     </div>
 
     <div v-if="isLoading" class="text-center py-5">
-      <div class="spinner-border verde-kofan" role="status"></div>
+      <div class="spinner-border verde-brand" role="status"></div>
       <p class="mt-2 text-muted brand-handmade">Preparando los detalles del hotel...</p>
     </div>
 
@@ -109,6 +146,9 @@ onMounted(loadSettings);
               <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#hotel">
                 <font-awesome-icon icon="fa-solid fa-hotel" class="me-2" />Operación diaria
               </button>
+              <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#pagos">
+                <font-awesome-icon icon="fa-solid fa-hand-holding-dollar" class="me-2" />Pagos y textos
+              </button>
               <button class="nav-link text-start mb-2" data-bs-toggle="pill" data-bs-target="#social">
                 <font-awesome-icon icon="fa-solid fa-share-nodes" class="me-2" />Canales de contacto
               </button>
@@ -118,41 +158,56 @@ onMounted(loadSettings);
           <div class="col-md-9 p-4 p-lg-5">
             <form @submit.prevent="handleSave">
               <div class="tab-content">
-                
+
                 <div class="tab-pane fade show active" id="general">
                   <h5 class="mb-4 fw-bold text-dark">Información Principal</h5>
                   <div class="row g-3">
                     <div class="col-md-12 mb-4 text-center">
                       <label class="form-label d-block fw-semibold text-muted mb-3">Logo Actual</label>
                       <div class="mb-3">
-                        <img 
-                        :src="config.logo_url ? `${base}${config.logo_url}` : defaultLogo" 
-                        alt="Logo Preview" 
-                        class="img-thumbnail shadow-sm p-2"
-                        style="max-height: 120px; border-radius: 15px;"
-                      >
+                        <img
+                          v-if="config.logo_url"
+                          :src="assetUrl(config.logo_url)"
+                          alt="Logo Preview"
+                          class="img-thumbnail shadow-sm p-2"
+                          style="max-height: 120px; border-radius: 15px;"
+                        >
+                        <p v-else class="text-muted small mb-0">Aún no hay un logo cargado.</p>
                       </div>
-                      <input type="file" ref="fileInput" @change="handleLogoUpload" class="d-none" accept="image/*">
-                      <button type="button" class="btn btn-outline-secondary btn-sm" style="border-radius: 10px;" @click="fileInput.click()">
-                        <font-awesome-icon icon="fa-solid fa-camera" class="me-2" />Cambiar Logo
+                      <input type="file" ref="fileInput" @change="handleLogoUpload" class="d-none" accept="image/jpeg,image/png,image/webp">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" style="border-radius: 10px;" :disabled="isUploadingLogo" @click="fileInput.click()">
+                        <span v-if="isUploadingLogo" class="spinner-border spinner-border-sm me-2"></span>
+                        <font-awesome-icon v-else icon="fa-solid fa-camera" class="me-2" />Cambiar Logo
                       </button>
                     </div>
-                    
+
                     <div class="col-md-12">
                       <label class="form-label fw-semibold small ms-1">Nombre del Hospedaje</label>
-                      <input v-model="config.hotel_name" type="text" class="form-control custom-input">
+                      <input v-model="config.hotel_name" type="text" class="form-control custom-input" required minlength="2" maxlength="120">
+                    </div>
+                    <div class="col-md-12">
+                      <label class="form-label fw-semibold small ms-1">Frase de bienvenida (eslogan)</label>
+                      <input v-model="config.tagline" type="text" class="form-control custom-input" maxlength="300">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Email de Contacto</label>
-                      <input v-model="config.contact_email" type="email" class="form-control custom-input">
+                      <input v-model="config.contact_email" type="email" class="form-control custom-input" maxlength="300">
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Teléfono Principal</label>
-                      <input v-model="config.phone" type="text" class="form-control custom-input">
+                      <input v-model="config.phone" type="text" class="form-control custom-input" maxlength="300">
                     </div>
                     <div class="col-md-12">
                       <label class="form-label fw-semibold small ms-1">Dirección Física</label>
-                      <input v-model="config.address" type="text" class="form-control custom-input">
+                      <input v-model="config.address" type="text" class="form-control custom-input" maxlength="300">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold small ms-1">Ciudad</label>
+                      <input v-model="config.city" type="text" class="form-control custom-input" maxlength="300">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold small ms-1">País</label>
+                      <input v-model="config.country" type="text" class="form-control custom-input" maxlength="300">
                     </div>
                   </div>
                 </div>
@@ -162,11 +217,11 @@ onMounted(loadSettings);
                   <div class="row g-3">
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Hora de Check-in</label>
-                      <input v-model="config.check_in_time" type="time" class="form-control custom-input">
+                      <input v-model="config.check_in_time" type="time" class="form-control custom-input" required>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Hora de Check-out</label>
-                      <input v-model="config.check_out_time" type="time" class="form-control custom-input">
+                      <input v-model="config.check_out_time" type="time" class="form-control custom-input" required>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Moneda Base</label>
@@ -177,7 +232,34 @@ onMounted(loadSettings);
                     </div>
                     <div class="col-md-6">
                       <label class="form-label fw-semibold small ms-1">Impuesto / IVA (%)</label>
-                      <input v-model.number="config.tax_percentage" type="number" class="form-control custom-input">
+                      <input v-model.number="config.tax_percentage" type="number" min="0" max="100" step="any" class="form-control custom-input">
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tab-pane fade" id="pagos">
+                  <h5 class="mb-2 fw-bold text-dark">Datos para transferir el anticipo</h5>
+                  <p class="text-muted small mb-3">
+                    No hay pasarela de pago: el huésped transfiere el anticipo y sube el comprobante, que el hotel
+                    verifica a mano. Estos datos se muestran al reservar (banco, tipo y número de cuenta, titular,
+                    llaves de pago, etc.).
+                  </p>
+                  <textarea v-model="config.payment_instructions" class="form-control custom-input mb-4" rows="5" maxlength="4000"
+                            placeholder="Ej: Bancolombia · Cuenta de ahorros 000-000000-00 · Titular: ... · NIT ..."></textarea>
+
+                  <h5 class="mb-3 fw-bold text-dark">Textos institucionales</h5>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label class="form-label fw-semibold small ms-1">Descripción "Sobre nosotros"</label>
+                      <textarea v-model="config.about_description" class="form-control custom-input" rows="4" maxlength="4000"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold small ms-1">Misión</label>
+                      <textarea v-model="config.mission" class="form-control custom-input" rows="4" maxlength="4000"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-semibold small ms-1">Visión</label>
+                      <textarea v-model="config.vision" class="form-control custom-input" rows="4" maxlength="4000"></textarea>
                     </div>
                   </div>
                 </div>
@@ -185,7 +267,7 @@ onMounted(loadSettings);
                 <div class="tab-pane fade" id="social">
                   <h5 class="mb-4 fw-bold text-dark">Presencia Digital</h5>
                   <div class="row g-4">
-                    
+
                     <div class="col-md-12">
                       <label class="form-label fw-semibold small ms-1">Facebook URL</label>
                       <div class="position-relative">
@@ -193,7 +275,7 @@ onMounted(loadSettings);
                         <input v-model="config.social_facebook" type="url" class="form-control custom-input ps-5 py-2" style="border-radius: 12px;" placeholder="https://facebook.com/...">
                       </div>
                     </div>
-                    
+
                     <div class="col-md-12">
                       <label class="form-label fw-semibold small ms-1">Instagram URL</label>
                       <div class="position-relative">
@@ -201,7 +283,7 @@ onMounted(loadSettings);
                         <input v-model="config.social_instagram" type="url" class="form-control custom-input ps-5 py-2" style="border-radius: 12px;" placeholder="https://instagram.com/...">
                       </div>
                     </div>
-                    
+
                     <div class="col-md-12">
                       <label class="form-label fw-semibold small ms-1">TikTok URL</label>
                       <div class="position-relative">
@@ -214,7 +296,7 @@ onMounted(loadSettings);
                       <label class="form-label fw-semibold small ms-1">Número de WhatsApp</label>
                       <div class="position-relative">
                         <font-awesome-icon :icon="['fab', 'whatsapp']" class="text-success position-absolute top-50 translate-middle-y ms-3 fs-5" />
-                        <input v-model="config.whatsapp_number" type="text" class="form-control custom-input ps-5 py-2" style="border-radius: 12px;" placeholder="Ej: 573224225925">
+                        <input v-model="config.whatsapp_number" type="text" class="form-control custom-input ps-5 py-2" style="border-radius: 12px;" placeholder="Ej: 573001234567">
                       </div>
                       <div class="form-text small ms-2 mt-1 opacity-75">
                         Incluye el indicativo (ej. 57 para Colombia) sin el símbolo "+".
@@ -234,7 +316,7 @@ onMounted(loadSettings);
 </template>
 
 <style scoped>
-.verde-kofan {
+.verde-brand {
   color: var(--k-forest) !important;
 }
 
@@ -280,7 +362,7 @@ onMounted(loadSettings);
   box-shadow: 0 0 0 0.25rem rgba(143, 211, 255, 0.28);
 }
 
-.btn-kofan:disabled {
+.btn-brand:disabled {
   background-color: rgba(139, 207, 91, 0.55) !important;
   border-color: rgba(139, 207, 91, 0.55) !important;
 }

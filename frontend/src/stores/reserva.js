@@ -1,8 +1,19 @@
+/**
+ * Reserva web (invitado o con sesión).
+ *
+ * El precio SIEMPRE lo calcula el servidor: aquí solo se muestra la cotización de
+ * GET /rooms/{id}/quote. El cálculo local (noches × precio) es una vista previa temporal
+ * mientras llega la cotización y nunca se envía.
+ */
 import { defineStore } from "pinia";
-import { ref, reactive, computed } from "vue"; // 🟢 Añadimos computed
+import { ref, reactive, computed, watch } from "vue";
 import Swal from "sweetalert2";
-import apiClient from "@/api/apiClient";
-import { useAuthStore } from "@/stores/auth";
+import { errorMessage } from "@/api/apiClient";
+import { getBookedDates, getQuote } from "@/api/rooms";
+import { createWebBooking } from "@/api/bookings";
+import { useConfigStore } from "@/stores/config";
+import { statusLabel } from "@/constants/booking";
+import { fromIsoDate, nightsBetween, toIsoDate } from "@/utils/format";
 
 const getBrandColor = (token, fallback) =>
   typeof window !== "undefined"
@@ -12,21 +23,37 @@ const getBrandColor = (token, fallback) =>
 const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
 const COLOR_DANGER = getBrandColor("--k-danger", "#e74c3c");
 
+export const RECEIPT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+export const RECEIPT_MAX_MB = 5;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 export const useReservaStore = defineStore("reserva", () => {
   const isModalOpen = ref(false);
   const isSubmitting = ref(false);
   const habitacionSeleccionada = ref(null);
 
-  const selectedDateRange = ref(null); 
-  const disabledDates = ref([]); 
-  const minDate = ref(new Date().toISOString().split("T")[0]); 
+  const selectedDateRange = ref(null);
+  const disabledDates = ref([]);
+  const minDate = ref(new Date());
+
+  // Cotización del servidor
+  const quote = ref(null);
+  const quoteLoading = ref(false);
+  const quoteError = ref("");
+  let quoteRequestId = 0;
 
   const form = reactive({
     nombreCompleto: "",
     correo: "",
     telefono: "",
+    tipoDocumento: "CC",
+    numeroDocumento: "",
+    aceptaPolitica: false,
     comprobante: null,
-    comprobantePreview: null
+    comprobantePreview: null,
   });
 
   const errors = reactive({
@@ -34,87 +61,79 @@ export const useReservaStore = defineStore("reserva", () => {
     correo: false,
     telefono: false,
     dates: false,
-    comprobante: false // 🟢 Nuevo validador
+    comprobante: false,
+    politica: false,
   });
 
-  // 🟢 CALCULADORA REACTIVA DEL TOTAL A PAGAR
-  const totalCalculado = computed(() => {
-    if (!selectedDateRange.value?.start || !selectedDateRange.value?.end || !habitacionSeleccionada.value) {
-      return 0;
+  const checkIn = computed(() => toIsoDate(selectedDateRange.value?.start));
+  const checkOut = computed(() => toIsoDate(selectedDateRange.value?.end));
+
+  /** Resumen a mostrar: la cotización del servidor o, mientras llega, una estimación local. */
+  const resumen = computed(() => {
+    if (quote.value) return { ...quote.value, estimated: false };
+    const nights = nightsBetween(checkIn.value, checkOut.value);
+    const room = habitacionSeleccionada.value;
+    if (!nights || !room) return null;
+    const configStore = useConfigStore();
+    const total = nights * (room.price_per_night || 0);
+    const percent = configStore.data.deposit_percent;
+    return {
+      nights,
+      price_per_night: room.price_per_night,
+      total_amount: total,
+      deposit_percent: percent,
+      deposit_amount: (total * percent) / 100,
+      currency: configStore.data.currency,
+      estimated: true,
+    };
+  });
+
+  const fetchQuote = async () => {
+    const requestId = ++quoteRequestId;
+    quote.value = null;
+    quoteError.value = "";
+    const room = habitacionSeleccionada.value;
+    if (!room || !checkIn.value || !checkOut.value || checkIn.value === checkOut.value) {
+      quoteLoading.value = false;
+      return;
     }
-    const checkIn = selectedDateRange.value.start;
-    const checkOut = selectedDateRange.value.end;
-    const diasEstadia = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)) || 1;
-    return habitacionSeleccionada.value.price * diasEstadia;
-  });
-
-  // Función para formatear moneda en Vue
-  const totalFormateado = computed(() => {
-    return totalCalculado.value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-  });
-  const anticipoCalculado = computed(() => totalCalculado.value / 2);
-  const anticipoFormateado = computed(() => {
-    return anticipoCalculado.value.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0  });
-  });
-
-  const handleFileUpload = (event) => {
-    const file = event.target?.files[0] || event.dataTransfer?.files[0]; // Soporta clic y arrastrar
-    if (file) {
-      form.comprobante = file;
-      
-      // Si es imagen, creamos la vista previa. Si es PDF, ponemos un icono genérico.
-      if (file.type.startsWith('image/')) {
-        form.comprobantePreview = URL.createObjectURL(file);
-      } else if (file.type === 'application/pdf') {
-        form.comprobantePreview = 'pdf-icon'; // Una bandera para saber que es PDF
-      }
+    quoteLoading.value = true;
+    try {
+      const data = await getQuote(room.id, checkIn.value, checkOut.value);
+      if (requestId === quoteRequestId) quote.value = data;
+    } catch (error) {
+      if (requestId === quoteRequestId) quoteError.value = errorMessage(error, "No pudimos calcular el precio de esas fechas.");
+    } finally {
+      if (requestId === quoteRequestId) quoteLoading.value = false;
     }
   };
 
-  const openModal = async (habitacion = null) => {
-    isModalOpen.value = true;
-    clearErrors();
-    selectedDateRange.value = null;
-
-    if (habitacion) {
-      habitacionSeleccionada.value = { ...habitacion };
-      await fetchDisabledDates(habitacion.id || habitacion._id);
-    }
-  };
+  watch([() => habitacionSeleccionada.value?.id, checkIn, checkOut], fetchQuote);
 
   const fetchDisabledDates = async (roomId) => {
+    disabledDates.value = [];
     try {
-      disabledDates.value = []; 
-      const response = await apiClient.get(`/rooms/${roomId}/booked-dates`);
-      
-      disabledDates.value = response.data.map(reserva => {
-        const fEntradaStr = reserva.fecha_entrada.toString().split('T')[0];
-        const fSalidaStr = reserva.fecha_salida.toString().split('T')[0];
-        const [inYear, inMonth, inDay] = fEntradaStr.split('-');
-        const [outYear, outMonth, outDay] = fSalidaStr.split('-');
-        
-        // 1. Creamos los objetos Date
-        const start = new Date(inYear, inMonth - 1, inDay);
-        const end = new Date(outYear, outMonth - 1, outDay);
-        
-        // 2. Le restamos un día a la salida (El check-out queda libre)
-        end.setDate(end.getDate() - 1);
-        
-        // 3. Protección anti-errores
-        if (end < start) {
-          end.setTime(start.getTime()); 
-        }
-
-        // 🟢 EL FIX: Retornamos los objetos que ya calculamos
-        return {
-          start: start,
-          end: end
-        };
-      }).filter(r => r.start && r.end); 
-      
+      const ranges = await getBookedDates(roomId);
+      disabledDates.value = ranges
+        .map(({ check_in, check_out }) => {
+          const start = fromIsoDate(check_in);
+          const end = fromIsoDate(check_out);
+          // El día de salida queda libre para una nueva entrada (intervalo semiabierto).
+          end.setDate(end.getDate() - 1);
+          return end < start ? null : { start, end };
+        })
+        .filter(Boolean);
     } catch (error) {
       console.error("Error cargando fechas ocupadas:", error);
     }
+  };
+
+  /** Abre el formulario de reserva. Conserva las fechas ya elegidas (p. ej. desde el buscador). */
+  const openModal = async (habitacion) => {
+    clearErrors();
+    habitacionSeleccionada.value = { ...habitacion };
+    isModalOpen.value = true;
+    await fetchDisabledDates(habitacion.id);
   };
 
   const closeModal = () => {
@@ -126,40 +145,68 @@ export const useReservaStore = defineStore("reserva", () => {
     Object.keys(errors).forEach((key) => (errors[key] = false));
   };
 
+  const removerComprobante = () => {
+    if (form.comprobantePreview && form.comprobantePreview !== "pdf-icon") {
+      URL.revokeObjectURL(form.comprobantePreview);
+    }
+    form.comprobante = null;
+    form.comprobantePreview = null;
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target?.files?.[0] || event.dataTransfer?.files?.[0];
+    if (event.target?.value) event.target.value = "";
+    if (!file) return;
+
+    if (!RECEIPT_TYPES.includes(file.type)) {
+      Swal.fire({
+        icon: "error",
+        title: "Formato no permitido",
+        text: "El comprobante debe ser una imagen JPG, PNG, WebP o un PDF.",
+        confirmButtonColor: COLOR_DANGER,
+      });
+      return;
+    }
+    if (file.size > RECEIPT_MAX_MB * 1024 * 1024) {
+      Swal.fire({
+        icon: "error",
+        title: "Archivo muy pesado",
+        text: `El comprobante no puede superar ${RECEIPT_MAX_MB} MB.`,
+        confirmButtonColor: COLOR_DANGER,
+      });
+      return;
+    }
+
+    removerComprobante();
+    form.comprobante = file;
+    form.comprobantePreview = file.type === "application/pdf" ? "pdf-icon" : URL.createObjectURL(file);
+    errors.comprobante = false;
+  };
+
   const resetForm = () => {
     form.nombreCompleto = "";
     form.correo = "";
     form.telefono = "";
-    form.comprobante = null;
-    
-    if (form.comprobantePreview && form.comprobantePreview !== 'pdf-icon') {
-      URL.revokeObjectURL(form.comprobantePreview);
-    }
-    form.comprobantePreview = null;
-    
-    selectedDateRange.value = null; 
+    form.tipoDocumento = "CC";
+    form.numeroDocumento = "";
+    form.aceptaPolitica = false;
+    removerComprobante();
+
+    selectedDateRange.value = null;
     habitacionSeleccionada.value = null;
+    disabledDates.value = [];
     clearErrors();
   };
 
-  
-
   const validateForm = () => {
-    let isValid = true;
     clearErrors();
-
-    if (!selectedDateRange.value?.start || !selectedDateRange.value?.end) { 
-      errors.dates = true; isValid = false; 
-    }
-    if (!form.nombreCompleto.trim()) { errors.nombreCompleto = true; isValid = false; }
-    
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!form.correo || !emailRegex.test(form.correo)) { errors.correo = true; isValid = false; }
-    if (!form.telefono) { errors.telefono = true; isValid = false; }
-    if (!form.comprobante) { errors.comprobante = true; isValid = false; }
-    
-    
-    return isValid;
+    if (!checkIn.value || !checkOut.value || checkIn.value === checkOut.value) errors.dates = true;
+    if (!form.nombreCompleto.trim()) errors.nombreCompleto = true;
+    if (!EMAIL_RE.test(form.correo.trim())) errors.correo = true;
+    if (!String(form.telefono).trim()) errors.telefono = true;
+    if (!form.comprobante) errors.comprobante = true;
+    if (!form.aceptaPolitica) errors.politica = true;
+    return !Object.values(errors).some(Boolean);
   };
 
   const handleSubmit = async () => {
@@ -167,81 +214,53 @@ export const useReservaStore = defineStore("reserva", () => {
       Swal.fire({
         icon: "error",
         title: "Faltan datos",
-        text: "Verifica que hayas seleccionado fechas, llenado tus datos y/o subido el comprobante.",
+        text: "Verifica que hayas seleccionado fechas, llenado tus datos, subido el comprobante y aceptado la política de datos.",
         confirmButtonColor: COLOR_FOREST,
       });
-      return false; 
+      return false;
     }
 
     isSubmitting.value = true;
-
-    const checkIn = selectedDateRange.value.start;
-    const checkOut = selectedDateRange.value.end;
-    
-    const formatLocal = (dateObj) => {
-      const year = dateObj.getFullYear();
-      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(dateObj.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const fechaInString = formatLocal(checkIn);
-    const fechaOutString = formatLocal(checkOut);
-
     Swal.fire({
-      title: "Enviando Reserva y Comprobante...",
+      title: "Enviando reserva y comprobante...",
       allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); },
+      didOpen: () => Swal.showLoading(),
     });
 
     try {
-      // 🟢 EL FIX: Cambiamos JSON por FormData porque hay un archivo de por medio
-      const formData = new FormData();
-      
-      formData.append("habitacion_id", habitacionSeleccionada.value.id || habitacionSeleccionada.value._id);
-      formData.append("fecha_entrada", fechaInString);
-      formData.append("fecha_salida", fechaOutString);
-      formData.append("observaciones", "Reserva web pública con comprobante adjunto.");
-      formData.append("tipo_persona", "natural");
-      formData.append("tipo_documento", "CC");
-      formData.append("cliente_documento", "0");
-      formData.append("cliente_nombre", form.nombreCompleto.trim());
-      formData.append("cliente_email", form.correo.trim());
-      formData.append("cliente_celular", form.telefono.toString());
-
-      if (form.comprobante) {
-        formData.append("comprobante", form.comprobante);
-      }
-
-      const auth = useAuthStore();
-      const tokenGuardado = localStorage.getItem("token"); 
-      const usuarioConfirmado = auth.isLogged || tokenGuardado !== null;
-      
-      const endpoint = usuarioConfirmado ? "/api/reservas/" : "/api/reservas/invitado";
-
-      // Usamos multipart/form-data
-      await apiClient.post(endpoint, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      const booking = await createWebBooking(
+        {
+          room_id: habitacionSeleccionada.value.id,
+          check_in: checkIn.value,
+          check_out: checkOut.value,
+          full_name: form.nombreCompleto.trim(),
+          email: form.correo.trim(),
+          phone: String(form.telefono).trim(),
+          document_type: form.numeroDocumento.trim() ? form.tipoDocumento : null,
+          document_number: form.numeroDocumento.trim() || null,
+          accept_privacy_policy: true,
         },
-      });
+        form.comprobante,
+      );
 
       await Swal.fire({
         icon: "success",
-        title: "¡Reserva Solicitada!",
-        text: `Hemos recibido tu comprobante, ${form.nombreCompleto.split(' ')[0]}. Lo verificaremos y te contactaremos pronto.`,
+        title: "¡Reserva solicitada!",
+        html: `
+          <p class="mb-1">Tu código de reserva es</p>
+          <p class="fs-3 fw-bold mb-3">${escapeHtml(booking.code)}</p>
+          <p class="mb-0">Estado: <strong>${escapeHtml(statusLabel(booking.status))}</strong>.
+          El hotel revisará tu comprobante y te confirmará la reserva.</p>`,
         confirmButtonColor: COLOR_FOREST,
       });
 
       closeModal();
       return true;
-
     } catch (error) {
-      console.error("Error del backend:", error);
       Swal.fire({
         icon: "error",
         title: "Ups, algo salió mal",
-        text: "No pudimos enviar tu reserva ni el comprobante. Intenta de nuevo.",
+        text: errorMessage(error, "No pudimos enviar tu reserva ni el comprobante. Intenta de nuevo."),
         confirmButtonColor: COLOR_DANGER,
       });
       return false;
@@ -249,18 +268,10 @@ export const useReservaStore = defineStore("reserva", () => {
       isSubmitting.value = false;
     }
   };
-  const removerComprobante = () => {
-    if (form.comprobantePreview && form.comprobantePreview !== 'pdf-icon') {
-      URL.revokeObjectURL(form.comprobantePreview);
-    }
-    form.comprobante = null;
-    form.comprobantePreview = null;
-  };
-
 
   return {
     isModalOpen, isSubmitting, form, errors, selectedDateRange, disabledDates, minDate,
-    habitacionSeleccionada, totalCalculado, totalFormateado, anticipoCalculado,
-    openModal, closeModal, handleSubmit, resetForm, handleFileUpload, removerComprobante, anticipoFormateado
+    habitacionSeleccionada, quote, quoteLoading, quoteError, resumen,
+    openModal, closeModal, handleSubmit, resetForm, handleFileUpload, removerComprobante,
   };
 });

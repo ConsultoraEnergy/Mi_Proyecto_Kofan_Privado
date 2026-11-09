@@ -12,6 +12,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 const isDragging = ref(false); // Estado para el Drag & Drop externo
 const fileInputRef = ref(null);
 const newImages = ref([]); // { id: uniqueKey, file: File, previewUrl: string }
@@ -31,8 +33,8 @@ const procesarArchivos = (files) => {
   }
 
   Array.from(files).forEach((file) => {
-    if (!file.type.startsWith('image/')) {
-      Swal.fire('Error', `El archivo '${file.name}' no es una imagen.`, 'error');
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      Swal.fire('Error', `El archivo '${file.name}' no es una imagen JPG, PNG o WebP.`, 'error');
       return;
     }
     // Agregamos un ID único para la key de Vue y vuedraggable
@@ -57,7 +59,7 @@ const quitarFotoNueva = (index) => {
   emitirCambios();
 };
 
-// 🟢 Re-sincronizamos el array limpio de archivos reales al padre
+// Re-sincronizamos el array limpio de archivos reales al padre
 const emitirCambios = () => {
   const archivosReales = newImages.value.map(img => img.file);
   emit("update:modelValue", archivosReales);
@@ -96,7 +98,7 @@ defineExpose({ reset });
       @drop.prevent="isDragging = false; procesarArchivos($event.dataTransfer.files)"
       @click="triggerFileInput"
     >
-      <input type="file" ref="fileInputRef" class="d-none" accept="image/*" multiple @change="procesarArchivos($event.target.files)">
+      <input type="file" ref="fileInputRef" class="d-none" accept="image/jpeg,image/png,image/webp" multiple @change="procesarArchivos($event.target.files)">
       <div class="py-2">
         <font-awesome-icon icon="fa-solid fa-cloud-arrow-up" class="fs-1 text-secondary mb-2" />
         <h6 class="mb-1 fw-bold text-dark">Arrastra fotos aquí o haz clic</h6>
@@ -105,7 +107,7 @@ defineExpose({ reset });
     </div>
     <div v-else class="text-center py-3">
         <font-awesome-icon icon="fa-solid fa-circle-check" class="fs-1 text-success mb-2" />
-        <h6 class="text-success fw-bold mb-0">¡Límite de 5 fotos alcanzado!</h6>
+        <h6 class="text-success fw-bold mb-0">¡Límite de {{ props.maxFiles }} fotos alcanzado!</h6>
     </div>
 
     <draggable 
@@ -150,7 +152,7 @@ defineExpose({ reset });
         </template>
 
 <style scoped>
-/* 🟢 Animación de Entrada Suave (Sustituye a la "barra de carga") */
+/* Animación de Entrada Suave (Sustituye a la "barra de carga") */
 @keyframes fadeInSlideIn {
   from { opacity: 0; transform: translateY(10px) scale(0.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -160,14 +162,14 @@ defineExpose({ reset });
   animation: fadeInSlideIn 0.4s ease-out forwards;
 }
 
-/* 🟢 Estilos para el reordenamiento (High Performance) */
+/* Estilos para el reordenamiento (High Performance) */
 .draggable-item { cursor: grab; }
 .draggable-item:active { cursor: grabbing; }
 
 .sortable-ghost { opacity: 0.3 !important; border: 2px dashed #0f3b2a !important; }
 .sortable-chosen { transform: scale(1.03); shadow: 0 10px 20px rgba(0,0,0,0.15) !important; }
 
-/* 🟢 Efectos de Hover para el botón de eliminar */
+/* Efectos de Hover para el botón de eliminar */
 .btn-quitar {
   bottom: 8px; 
   right: 8px; 
@@ -181,7 +183,7 @@ defineExpose({ reset });
   transform: scale(1);
 }
 
-/* 🟢 Highlight Principal (Kofán Premium Style) */
+/* Foto principal resaltada */
 .principal-highlight {
   background-color: #f0fdf4; /* Un verde súper claro */
 }
@@ -196,7 +198,7 @@ defineExpose({ reset });
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
-/* 🟢 Sutil indicador de arrastre */
+/* Sutil indicador de arrastre */
 .drag-handle {
     position: absolute;
     bottom: 8px;

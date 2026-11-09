@@ -1,14 +1,15 @@
 <script setup>
 import { ref } from "vue";
-import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "vue-router";
 import Swal from "sweetalert2";
-import { register, login } from "@/services/authServices";
-
-// 1. 🟢 IMPORTAMOS TU NUEVO COMPONENTE "LEGO"
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import { register } from "@/api/auth";
+import { errorMessage } from "@/api/apiClient";
 import FormularioRegistro from "@/components/FormularioRegistro.vue";
 
 const auth = useAuthStore();
+const configStore = useConfigStore();
 const router = useRouter();
 const isLoading = ref(false);
 
@@ -19,65 +20,65 @@ const getBrandColor = (token, fallback) =>
 
 const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
 
-// 2. 🟢 ESTA FUNCIÓN ATRAPA LOS DATOS CUANDO EL FORMULARIO HACE EL "EMIT"
-const registrarCliente = async (datosDelFormulario) => {
+/** Recibe el formulario (ya con los nombres de la API) y crea la cuenta. */
+const registrarCliente = async (datos) => {
   isLoading.value = true;
 
   try {
-    // 1. Registrar
     await register({
-      tipo_persona:    datosDelFormulario.tipo_persona,
-      full_name:       datosDelFormulario.full_name,
-      type_document:   datosDelFormulario.type_document,
-      number_document: datosDelFormulario.number_document,
-      email:           datosDelFormulario.email,
-      phone:           datosDelFormulario.phone || null,
-      country:         datosDelFormulario.country,
-      city:            datosDelFormulario.city,
-      password:        datosDelFormulario.password,
+      email: datos.email,
+      password: datos.password,
+      full_name: datos.full_name,
+      person_type: datos.person_type,
+      document_type: datos.document_type,
+      document_number: datos.document_number,
+      phone: datos.phone,
+      country: datos.country,
+      city: datos.city,
+      accept_privacy_policy: datos.accept_privacy_policy === true,
     });
+  } catch (error) {
+    const duplicated = error.response?.status === 409;
+    Swal.fire({
+      icon: duplicated ? "warning" : "error",
+      title: duplicated ? "Datos ya registrados" : "Error al registrarse",
+      text: errorMessage(error, "No pudimos crear tu cuenta. Por favor intenta de nuevo."),
+      confirmButtonColor: COLOR_FOREST,
+    });
+    isLoading.value = false;
+    return;
+  }
 
-    // 2. Login automático
-    const tokenData = await login({ username: datosDelFormulario.email, password: datosDelFormulario.password });
-
-    // 3. Guardar sesión
-    auth.login(
-      { email: datosDelFormulario.email, full_name: datosDelFormulario.full_name, role: "client" },
-      tokenData.access_token,
-      tokenData.token_type
-    );
-
-    // 4. Notificación
+  try {
+    await auth.login(datos.email, datos.password);
     await Swal.fire({
       icon: "success",
-      title: "¡Bienvenido a Kofán!",
-      text: `Hola ${datosDelFormulario.full_name}, tu cuenta ha sido creada con éxito.`,
-      timer: 2500,
-      showConfirmButton: false,
+      title: `¡Bienvenido a ${configStore.hotelName}!`,
+      html:
+        `Hola ${escapeHtml(datos.full_name)}, tu cuenta ha sido creada con éxito.<br><br>` +
+        "Te enviamos un enlace para verificar tu correo; al verificarlo vincularemos las reservas que hayas hecho como invitado.",
+      confirmButtonColor: COLOR_FOREST,
     });
-
-    // 5. Redirigir
-    router.push({ name: "account-profile" });
-
+    router.push(auth.homeRoute());
   } catch (error) {
-    const detail = error.response?.data?.detail || "";
-
-    if (detail.toLowerCase().includes("correo")) {
-      Swal.fire({ icon: "warning", title: "Correo ya registrado", text: detail, confirmButtonColor: COLOR_FOREST });
-    } else if (detail.toLowerCase().includes("documento")) {
-      Swal.fire({ icon: "warning", title: "Documento ya registrado", text: detail, confirmButtonColor: COLOR_FOREST });
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Error al registrarse",
-        text: detail || "No pudimos crear tu cuenta. Por favor intenta de nuevo.",
-        confirmButtonColor: COLOR_FOREST,
-      });
-    }
+    // La cuenta existe, pero no se pudo iniciar sesión automáticamente.
+    await Swal.fire({
+      icon: "info",
+      title: "Cuenta creada",
+      text: "Revisa tu correo para verificar tu cuenta e inicia sesión para continuar.",
+      confirmButtonColor: COLOR_FOREST,
+    });
+    router.push({ name: "login" });
   } finally {
     isLoading.value = false;
   }
 };
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
 </script>
 
 <template>
@@ -85,28 +86,34 @@ const registrarCliente = async (datosDelFormulario) => {
     <div class="container d-flex justify-content-center">
       <div class="register-card row g-0">
 
-        <div class="col-lg-4 d-none d-lg-flex flex-column justify-content-between p-4 p-xl-5 sidebar-kofan">
+        <div class="col-lg-4 d-none d-lg-flex flex-column justify-content-between p-4 p-xl-5 sidebar-brand">
           <div>
-            <p class="sidebar-kicker mb-2">Comunidad Kofán</p>
+            <p class="sidebar-kicker mb-2">Comunidad {{ configStore.hotelName }}</p>
             <h2 class="sidebar-title">Únete a nuestra comunidad y gestiona con armonía</h2>
             <p class="sidebar-copy mb-0">Crea tu cuenta para organizar cada experiencia con calma y claridad.</p>
           </div>
-          
+
           <div class="text-center mt-auto pb-3">
-            <img src="@/img/Kofan.png" alt="Logo Kofán" class="img-fluid opacity-75 kofan-logo-sidebar">
+            <img
+              v-if="configStore.logoUrl"
+              :src="configStore.logoUrl"
+              :alt="`Logo ${configStore.hotelName}`"
+              class="img-fluid opacity-75 brand-logo-sidebar"
+            />
+            <font-awesome-icon v-else icon="fa-solid fa-leaf" class="brand-icon-sidebar" />
           </div>
         </div>
 
         <div class="col-lg-8 p-4 p-md-5 form-panel">
           <div class="text-center mb-4">
             <h2 class="register-title mb-2">Crear Cuenta</h2>
-            <p class="register-copy mb-0">Tu acceso al ecosistema Kofán comienza aquí.</p>
+            <p class="register-copy mb-0">Tu acceso a {{ configStore.hotelName }} comienza aquí.</p>
           </div>
 
-          <FormularioRegistro 
-            :mostrarRol="false" 
+          <FormularioRegistro
+            :mostrarRol="false"
             :cargando="isLoading"
-            @enviar="registrarCliente" 
+            @enviar="registrarCliente"
           />
 
           <div class="col-12 text-center mt-3">
@@ -140,7 +147,7 @@ const registrarCliente = async (datosDelFormulario) => {
   box-shadow: 0 12px 30px rgba(15, 59, 42, 0.08);
 }
 
-.sidebar-kofan {
+.sidebar-brand {
   background-color: var(--k-sky-soft);
   color: var(--k-forest);
   border-right: 1px solid rgba(52, 152, 219, 0.16);
@@ -163,14 +170,20 @@ const registrarCliente = async (datosDelFormulario) => {
 :deep(.form-control::placeholder),
 :deep(.form-select),
 :deep(.invalid-feedback),
-:deep(.btn-kofan),
+:deep(.btn-brand),
 :deep(.input-group-text) {
   font-family: "Handlee", cursive;
 }
 
-.kofan-logo-sidebar {
+.brand-logo-sidebar {
   max-height: 220px;
   object-fit: contain;
+}
+
+.brand-icon-sidebar {
+  font-size: 6rem;
+  color: var(--k-forest);
+  opacity: 0.5;
 }
 
 .form-panel {
@@ -218,7 +231,7 @@ const registrarCliente = async (datosDelFormulario) => {
   opacity: 1;
 }
 
-:deep(.btn-kofan) {
+:deep(.btn-brand) {
   background-color: var(--k-forest) !important;
   border-color: var(--k-forest) !important;
   color: var(--k-cream) !important;
@@ -227,13 +240,13 @@ const registrarCliente = async (datosDelFormulario) => {
   font-weight: 700;
 }
 
-:deep(.btn-kofan:hover) {
+:deep(.btn-brand:hover) {
   background-color: var(--k-apple) !important;
   border-color: var(--k-apple) !important;
   color: var(--k-forest) !important;
 }
 
-:deep(.btn-kofan:disabled) {
+:deep(.btn-brand:disabled) {
   background-color: rgba(139, 207, 91, 0.65) !important;
   border-color: rgba(139, 207, 91, 0.65) !important;
   opacity: 1;

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { PERMISSIONS } from "@/constants/booking";
 
 const PublicLayout = () => import("@/layouts/PublicLayout.vue");
 const HomeView = () => import("@/views/public/Home.vue");
@@ -37,11 +38,29 @@ const routes = [
         path: "login",
         name: "login",
         component: () => import("@/views/auth/Login.vue"),
+        meta: { guestOnly: true },
       },
       {
         path: "register",
         name: "register",
         component: () => import("@/views/auth/Register.vue"),
+        meta: { guestOnly: true },
+      },
+      {
+        path: "verify-email",
+        name: "verify-email",
+        component: () => import("@/views/auth/VerifyEmail.vue"),
+      },
+      {
+        path: "forgot-password",
+        name: "forgot-password",
+        component: () => import("@/views/auth/ForgotPassword.vue"),
+        meta: { guestOnly: true },
+      },
+      {
+        path: "reset-password",
+        name: "reset-password",
+        component: () => import("@/views/auth/ResetPassword.vue"),
       },
     ],
   },
@@ -84,7 +103,8 @@ const routes = [
   {
     path: "/admin",
     component: AdminLayout,
-    meta: { requiresAuth: true, isAdmin: true, hideNav: true },
+    // Zona del personal (admin y recepción). Cada vista exige además su permiso.
+    meta: { requiresAuth: true, requiresStaff: true, hideNav: true },
     children: [
       {
         path: "",
@@ -93,32 +113,38 @@ const routes = [
       {
         path: "dashboard",
         name: "admin-dashboard",
+        meta: { permission: PERMISSIONS.DASHBOARD_READ },
         component: () => import("@/views/admin/DashboardView.vue"),
       },
       {
         path: "rooms",
         name: "admin-rooms",
+        meta: { permission: PERMISSIONS.ROOMS_READ_ALL },
         component: () => import("@/views/admin/RoomsManager.vue"),
       },
       {
         path: "bookings",
         name: "admin-bookings",
+        meta: { permission: PERMISSIONS.BOOKINGS_READ_ALL },
         component: () => import("@/views/admin/BookingsManager.vue"),
       },
       {
         path: "users",
         name: "admin-users",
+        meta: { permission: PERMISSIONS.USERS_READ },
         component: () => import("@/views/admin/UsersManager.vue"),
       },
       {
         path: "gallery",
         name: "admin-gallery",
+        meta: { permission: PERMISSIONS.GALLERY_WRITE },
         component: () => import("@/views/admin/GalleryManager.vue"),
       },
       {
         path: 'configuracion',
         name: 'admin-config',
         component: ConfiguracionAdmin,
+        meta: { permission: PERMISSIONS.SETTINGS_WRITE },
       }
     ],
   },
@@ -141,25 +167,25 @@ const router = createRouter({
 });
 
 // GUARDIA DE NAVEGACIÓN
-router.beforeEach((to, from, next) => {
+// La sesión se restaura (cookie HttpOnly -> /auth/refresh) antes de la primera navegación.
+// Estas guardias solo mejoran la experiencia: la autorización real la aplica el backend.
+router.beforeEach(async (to) => {
   const auth = useAuthStore();
+  await auth.init();
 
   if (to.meta.requiresAuth && !auth.isLogged) {
-    return next({ name: "login" });
+    return { name: "login", query: { redirect: to.fullPath } };
   }
-
-  if (to.meta.isAdmin && !auth.isAdmin) {
-    return next({ name: "hospedaje-home" }); 
+  if (to.meta.requiresStaff && !auth.isStaff) {
+    return { name: "hospedaje-home" };
   }
-
-  if ((to.name === "login" || to.name === "register") && auth.isLogged) {
-    if (auth.isAdmin) {
-      return next({ name: "admin-dashboard" });
-    }
-    return next({ name: "account-profile" });
+  if (to.meta.permission && !auth.can(to.meta.permission)) {
+    return to.name === "admin-dashboard" ? { name: "hospedaje-home" } : { name: "admin-dashboard" };
   }
-
-  next();
+  if (to.meta.guestOnly && auth.isLogged) {
+    return auth.homeRoute();
+  }
+  return true;
 });
 
 export default router;

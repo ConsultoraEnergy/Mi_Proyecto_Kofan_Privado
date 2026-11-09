@@ -1,41 +1,37 @@
 <script setup>
-import { useAuthStore } from "@/stores/auth";
-import { ref, onMounted } from "vue";
-import AdminHeader from "@/views/admin/AdminHeader.vue";
+import { computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { getUserProfile } from "@/services/authServices";
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import { PERMISSIONS } from "@/constants/booking";
+import AdminHeader from "@/views/admin/AdminHeader.vue";
 
 const auth = useAuthStore();
+const configStore = useConfigStore();
 const router = useRouter();
 
-const user = ref();
-const errorMessage = ref("");
-const isLoading = ref(false);
+const operationLinks = [
+  { name: "admin-dashboard", label: "Inicio", icon: "fa-solid fa-seedling", permission: PERMISSIONS.DASHBOARD_READ },
+  { name: "admin-bookings", label: "Reservas", icon: "fa-solid fa-calendar-check", permission: PERMISSIONS.BOOKINGS_READ_ALL },
+  { name: "admin-rooms", label: "Habitaciones", icon: "fa-solid fa-bed", permission: PERMISSIONS.ROOMS_READ_ALL },
+  { name: "admin-users", label: "Usuarios", icon: "fa-solid fa-users", permission: PERMISSIONS.USERS_READ },
+];
 
-const loadProfile = async () => {
-  try {
-    const profile = await getUserProfile();
-    user.value = profile;
-  } catch (error) {
-    errorMessage.value = "Sesión expirada o inválida";
-    auth.logout();
-    router.push("/auth/login");
-  } finally {
-    isLoading.value = false;
-  }
-};
+const supportLinks = [
+  { name: "admin-gallery", label: "Galería", icon: "fa-solid fa-images", permission: PERMISSIONS.GALLERY_WRITE },
+  { name: "admin-config", label: "Configuración", icon: "fa-solid fa-hotel", permission: PERMISSIONS.SETTINGS_WRITE },
+];
 
-// 🟢 FUNCIÓN CORREGIDA
-const handleLogout = () => {
-  console.log("Cerrando sesión..."); // Para verificar en consola (F12) que el botón sí se presiona
-  auth.logout();
-  
-  // 🟢 Lo enviamos a la ruta segura de login en lugar de "hospedaje-home"
-  router.push("/auth/login"); 
+const visibleOperation = computed(() => operationLinks.filter((l) => auth.can(l.permission)));
+const visibleSupport = computed(() => supportLinks.filter((l) => auth.can(l.permission)));
+
+const handleLogout = async () => {
+  await auth.logout();
+  router.push({ name: "hospedaje-home" });
 };
 
 onMounted(() => {
-  loadProfile();
+  configStore.fetchSiteConfig();
 });
 </script>
 
@@ -43,34 +39,32 @@ onMounted(() => {
   <div class="admin-wrapper d-flex">
     <aside class="admin-sidebar p-3 shadow-sm">
       <div class="text-center mb-4 sidebar-brand">
-        <img src="@/img/Kofan.png" width="150" alt="Logo" class="brand-logo" />
+        <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="150" alt="Logo" class="brand-logo" />
         <p class="brand-handmade mt-2 mb-1 text-white">Hospitalidad Serena</p>
-        <h5 class="section-title mb-0 text-white">Kofán Admin</h5>
+        <h5 class="section-title mb-0 text-white">{{ configStore.hotelName }} Admin</h5>
       </div>
 
       <nav class="nav flex-column gap-2">
-        <small class="nav-group-label">Operación diaria</small>
+        <small v-if="visibleOperation.length" class="nav-group-label">Operación diaria</small>
 
-        <router-link :to="{ name: 'admin-dashboard' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-seedling" class="me-2" /> <span>Inicio</span>
-        </router-link>
-        <router-link :to="{ name: 'admin-bookings' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-calendar-check" class="me-2" /> <span>Reservas</span>
-        </router-link>
-        <router-link :to="{ name: 'admin-rooms' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-bed" class="me-2" /> <span>Habitaciones</span>
-        </router-link>
-        <router-link :to="{ name: 'admin-users' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-users" class="me-2" /> <span>Usuarios</span>
+        <router-link
+          v-for="link in visibleOperation"
+          :key="link.name"
+          :to="{ name: link.name }"
+          class="nav-link-admin"
+        >
+          <font-awesome-icon :icon="link.icon" class="me-2" /> <span>{{ link.label }}</span>
         </router-link>
 
-        <small class="nav-group-label mt-3">Apoyo y ajustes</small>
+        <small v-if="visibleSupport.length" class="nav-group-label mt-3">Apoyo y ajustes</small>
 
-        <router-link :to="{ name: 'admin-gallery' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-images" class="me-2" /> <span>Galería</span>
-        </router-link>
-        <router-link :to="{ name: 'admin-config' }" class="nav-link-admin">
-          <font-awesome-icon icon="fa-solid fa-hotel" class="me-2" /> <span>Configuración</span>
+        <router-link
+          v-for="link in visibleSupport"
+          :key="link.name"
+          :to="{ name: link.name }"
+          class="nav-link-admin"
+        >
+          <font-awesome-icon :icon="link.icon" class="me-2" /> <span>{{ link.label }}</span>
         </router-link>
 
         <button
@@ -115,7 +109,7 @@ onMounted(() => {
   filter: drop-shadow(0 8px 18px rgba(15, 59, 42, 0.18));
 }
 
-/* 🟢 Asegura que el contenido no se pegue al borde */
+/* Evita que el contenido quede bajo la barra lateral */
 .main-container {
   display: flex;
   flex-direction: column;
@@ -145,7 +139,6 @@ onMounted(() => {
   padding: 0 0.45rem;
 }
 
-/* Tus estilos de Nav-Links se mantienen iguales... */
 .nav-link-admin {
   color: rgba(255, 252, 248, 0.92);
   text-decoration: none;

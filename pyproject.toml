@@ -1,0 +1,40 @@
+[project]
+name = "hotel-kawari-api"
+version = "0.1.0"
+description = "API de reservas de Hotel Kawari (FastAPI + MongoDB)"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.120,<1",
+    "uvicorn[standard]>=0.40,<1",
+    "pymongo>=4.16,<5",
+    "pydantic>=2.12,<3",
+    "pydantic-settings>=2.13,<3",
+    "email-validator>=2.3,<3",
+    "python-multipart>=0.0.20",
+    "pyjwt>=2.10,<3",
+    "pwdlib[argon2]>=0.3,<1",
+    "pillow>=11,<14",
+    "apscheduler>=3.11,<4",
+    "tzdata>=2025.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "pytest-cov>=7",
+    "httpx>=0.28",
+]
+
+[tool.uv]
+# Aplicación (no librería): uv instala las dependencias sin empaquetar el proyecto.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
+addopts = "-p no:cacheprovider"
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]

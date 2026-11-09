@@ -1,30 +1,33 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { getRoomLogs } from '@/services/roomService';
+import { listAuditLogs } from '@/api/operations';
+import { formatDateTime } from '@/utils/format';
 import RoomHistoryModal from '@/components/RoomHistoryModal.vue';
+
+const ACTIONS = {
+  create: { label: 'Creación', dot: 'bg-success' },
+  update: { label: 'Actualización', dot: 'bg-primary' },
+  delete: { label: 'Eliminación', dot: 'bg-danger' },
+  add_images: { label: 'Fotos agregadas', dot: 'bg-info' },
+  remove_image: { label: 'Foto eliminada', dot: 'bg-warning' },
+};
 
 const logs = ref([]);
 const isLoading = ref(true);
-const modalVisible = ref(false); 
+const modalVisible = ref(false);
+
+const actionMeta = (action) => ACTIONS[action] || { label: action, dot: 'bg-secondary' };
 
 const fetchLogs = async () => {
   try {
     isLoading.value = true;
-    const response = await getRoomLogs(1, 3); 
-    logs.value = response.data || []; 
-  } catch (error) {
-    console.error("Error cargando logs de la tarjeta:", error);
+    const response = await listAuditLogs({ entity: 'room', page: 1, limit: 3 });
+    logs.value = response.items || [];
+  } catch {
     logs.value = [];
   } finally {
     isLoading.value = false;
   }
-};
-
-const formatTime = (dateStr) => {
-  if (!dateStr) return '';
-  return new Intl.DateTimeFormat('es-CO', { 
-    hour: '2-digit', minute: '2-digit' 
-  }).format(new Date(dateStr));
 };
 
 onMounted(fetchLogs);
@@ -32,7 +35,7 @@ onMounted(fetchLogs);
 
 <template>
   <div class="card border-0 shadow-sm rounded-4 p-4">
-    
+
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="fw-bold mb-0">Historial de Habitaciones</h5>
       <span class="text-muted small fw-bold">{{ logs.length }} mov.</span>
@@ -47,26 +50,26 @@ onMounted(fetchLogs);
     </div>
 
     <div v-else>
-      <div v-for="(log, index) in logs.slice(0, 3)" :key="index" 
+      <div v-for="log in logs" :key="log.id"
            class="d-flex align-items-center bg-white border shadow-sm rounded-3 py-2 px-3 mb-2 notification-item">
-        
-        <div :class="['activity-dot me-3 flex-shrink-0', log.action === 'ELIMINACIÓN' ? 'bg-danger' : log.action === 'CREACIÓN' ? 'bg-success' : 'bg-primary']"></div>
-        
+
+        <div :class="['activity-dot me-3 flex-shrink-0', actionMeta(log.action).dot]"></div>
+
         <div class="flex-grow-1 min-w-0">
-          <h6 class="mb-0 fw-bold small text-truncate">{{ log.room_name }}</h6>
+          <h6 class="mb-0 fw-bold small text-truncate">{{ log.entity_label || 'Habitación' }}</h6>
           <p class="mb-0 text-muted extra-small text-truncate text-uppercase">
-            {{ log.action }} por {{ log.user ? log.user.split('@')[0] : 'Sistema' }}
+            {{ actionMeta(log.action).label }} por {{ log.actor ? log.actor.split('@')[0] : 'Sistema' }}
           </p>
         </div>
-        
-        <div class="text-muted extra-small fw-bold ms-2 flex-shrink-0">
-          {{ formatTime(log.timestamp) }}
+
+        <div class="text-muted extra-small fw-bold ms-2 flex-shrink-0 text-end">
+          {{ formatDateTime(log.created_at) }}
         </div>
       </div>
     </div>
 
-    <button 
-      @click="modalVisible = true" 
+    <button
+      @click="modalVisible = true"
       class="btn btn-light btn-sm w-100 mt-2 fw-bold text-muted border-0 hover-gray"
       :disabled="isLoading"
     >
@@ -84,8 +87,8 @@ onMounted(fetchLogs);
   border-radius: 50%;
 }
 
-.extra-small { 
-  font-size: 0.70rem; 
+.extra-small {
+  font-size: 0.70rem;
 }
 
 .rounded-4 {

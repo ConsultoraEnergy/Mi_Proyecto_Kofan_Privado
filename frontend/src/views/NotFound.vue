@@ -19,12 +19,19 @@
         <button @click="$router.back()" class="btn btn-outline-light px-4">
           <font-awesome-icon icon="arrow-left" class="me-2" /> Volver atrás
         </button>
-        <router-link :to="{ name: 'hospedaje-home' }" class="btn btn-kofan-primary px-4">
+        <router-link :to="{ name: 'hospedaje-home' }" class="btn btn-brand-primary px-4">
+          Ir a {{ configStore.hotelName }}
         </router-link>
       </div>
     </div>
   </div>
 </template>
+
+<script setup>
+import { useConfigStore } from "@/stores/config";
+
+const configStore = useConfigStore();
+</script>
 
 <style scoped>
 .not-found-wrapper {
@@ -43,7 +50,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 59, 42, 0.7); /* Verde Kofán con transparencia */
+  background: rgba(15, 59, 42, 0.7);
   backdrop-filter: blur(4px);
 }
 
@@ -76,7 +83,7 @@
   to { transform: rotate(360deg); }
 }
 
-.btn-kofan-primary {
+.btn-brand-primary {
   background-color: #2ecc71;
   color: #0f3b2a;
   border: none;
@@ -85,7 +92,7 @@
   transition: all 0.3s ease;
 }
 
-.btn-kofan-primary:hover {
+.btn-brand-primary:hover {
   background-color: #27ae60;
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(46, 204, 113, 0.3);

@@ -1,11 +1,21 @@
 <script setup>
-const paginaActual = ref(1);
-const totalPaginas = ref(1);
-const limitePorPagina = 10;
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, defineAsyncComponent } from "vue";
+import { useRoute } from "vue-router";
 import Swal from "sweetalert2";
-import apiClient from "@/api/apiClient";
-import { defineAsyncComponent } from "vue";
+import { errorMessage } from "@/api/apiClient";
+import { listBookings, changeBookingStatus, openReceipt } from "@/api/bookings";
+import { getDashboard } from "@/api/operations";
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import {
+  BOOKING_STATUS as S,
+  BOOKING_STATUS_META,
+  PERMISSIONS,
+  canTransition,
+  requiresReason,
+} from "@/constants/booking";
+import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
+
 const ModalEdicionReserva = defineAsyncComponent(
   () => import("@/components/ModalEdicionReserva.vue"),
 );
@@ -13,30 +23,39 @@ const ModalFactura = defineAsyncComponent(
   () => import("@/components/ModalFactura.vue"),
 );
 
-// 🟢 1. CONSTANTES (Eliminación de Magic Strings)
-const ESTADOS_RESERVA = {
-  PENDIENTE: "pendiente",
-  CONFIRMADA: "confirmada",
-  OCUPADA: "ocupada",
-  FINALIZADA: "finalizada",
-  CANCELADA: "cancelada",
+const auth = useAuthStore();
+const configStore = useConfigStore();
+const route = useRoute();
+
+const TABS = [
+  { key: "pending_verification", label: "Por verificar", icon: "fa-solid fa-receipt", statuses: [S.PENDING_VERIFICATION] },
+  { key: "pending_payment", label: "Pendientes de pago", icon: "fa-solid fa-clock", statuses: [S.PENDING_PAYMENT] },
+  { key: "confirmed", label: "Confirmadas", icon: "fa-solid fa-calendar-days", statuses: [S.CONFIRMED] },
+  { key: "checked_in", label: "En el hotel", icon: "fa-solid fa-bed", statuses: [S.CHECKED_IN] },
+  { key: "history", label: "Historial", icon: "fa-solid fa-broom", statuses: [S.CHECKED_OUT, S.CANCELLED] },
+];
+
+// Clases suaves del diseño para cada estado (la etiqueta y el ícono vienen de BOOKING_STATUS_META).
+const SOFT_BADGES = {
+  pending_verification: "badge-soft-sky",
+  pending_payment: "badge-soft-sand",
+  confirmed: "badge-soft-apple",
+  checked_in: "badge-soft-sky",
+  checked_out: "badge-soft-neutral",
+  cancelled: "badge-soft-rose",
 };
 
+const limitePorPagina = 10;
+const paginaActual = ref(1);
+const totalRegistros = ref(0);
+const totalPaginas = computed(() => Math.max(1, Math.ceil(totalRegistros.value / limitePorPagina)));
+
 const reservas = ref([]);
-const filtro = ref("");
-const filtroAplicado = ref(""); // Lo que realmente usaremos para filtrar
-let timeoutBuscador = null; // Nuestro reloj temporizador
-
-// Vigilar cada vez que el usuario teclea en "filtro"
-watch(filtro, (nuevoValor) => {
-  clearTimeout(timeoutBuscador); // Cancelar la búsqueda anterior si sigue tecleando
-
-  timeoutBuscador = setTimeout(() => {
-    filtroAplicado.value = nuevoValor; // Aplicar la búsqueda real después de 300ms (0.3 seg)
-  }, 300);
-});
+const resumen = ref({ pending_verification: 0, pending_payment: 0 });
 const cargandoReservas = ref(true);
-const pestanaActiva = ref("proximas");
+const pestanaActiva = ref(TABS.some((t) => t.key === route.query.tab) ? route.query.tab : TABS[0].key);
+const filtro = ref("");
+const totalHuespedesEnCasa = ref(null);
 
 const getBrandColor = (token, fallback) =>
   typeof window !== "undefined"
@@ -46,256 +65,145 @@ const getBrandColor = (token, fallback) =>
 const COLOR_APPLE = getBrandColor("--k-apple", "#8BCF5B");
 const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
 
+const money = (value) => formatMoney(value, configStore.data.currency);
+const statusMeta = (status) => BOOKING_STATUS_META[status] || { label: status, icon: "fa-solid fa-circle-info" };
+
+const puedeCambiarEstado = computed(() => auth.can(PERMISSIONS.BOOKINGS_CHANGE_STATUS));
+const puedeEditar = computed(() => auth.can(PERMISSIONS.BOOKINGS_UPDATE));
+const puedeVerComprobantes = computed(() => auth.can(PERMISSIONS.BOOKINGS_VIEW_RECEIPTS));
+const puedeVerFolio = computed(() => auth.can(PERMISSIONS.FOLIOS_READ));
+
 const cargarReservas = async () => {
   cargandoReservas.value = true;
   try {
-    // 1. Armamos el texto que le vamos a enviar al backend según la pestaña
-    let estadosQuery = "";
-    if (pestanaActiva.value === "proximas")
-      estadosQuery = `${ESTADOS_RESERVA.PENDIENTE},${ESTADOS_RESERVA.CONFIRMADA}`;
-    if (pestanaActiva.value === "casa") estadosQuery = ESTADOS_RESERVA.OCUPADA;
-    if (pestanaActiva.value === "historial")
-      estadosQuery = `${ESTADOS_RESERVA.FINALIZADA},${ESTADOS_RESERVA.CANCELADA}`;
+    const tab = TABS.find((t) => t.key === pestanaActiva.value) || TABS[0];
+    const params = { status: tab.statuses.join(","), page: paginaActual.value, limit: limitePorPagina };
+    const termino = filtro.value.trim();
+    if (termino) params.q = termino;
 
-    // 🟢 2. EL FIX ESTÁ AQUÍ: Mira bien que la URL ahora incluye ?estados=${estadosQuery}
-    const response = await apiClient.get(
-      `/api/reservas/admin/todas?estados=${estadosQuery}&page=${paginaActual.value}&limit=${limitePorPagina}`,
-    );
-
-    reservas.value =
-      response.data.reservas || response.data.data || response.data;
-
-    // 3. Sincronizamos la paginación
-    if (response.data.resumen) {
-      totalPaginas.value = response.data.resumen.total_paginas || 1;
-      paginaActual.value =
-        response.data.resumen.pagina_actual || paginaActual.value;
-    }
+    const data = await listBookings(params);
+    reservas.value = data.items || [];
+    totalRegistros.value = data.total || 0;
+    if (data.summary) resumen.value = data.summary;
   } catch (error) {
-    console.error("Error al cargar reservas:", error);
-    Swal.fire("Error", "No se pudieron cargar las reservas.", "error");
+    Swal.fire("Error", errorMessage(error, "No se pudieron cargar las reservas."), "error");
   } finally {
-    setTimeout(() => {
-      cargandoReservas.value = false;
-    }, 300);
+    cargandoReservas.value = false;
   }
 };
 
-// 🟢 Agrega esta nueva función para cambiar de página
+let timeoutBuscador = null;
+watch(filtro, () => {
+  clearTimeout(timeoutBuscador);
+  timeoutBuscador = setTimeout(() => {
+    paginaActual.value = 1;
+    cargarReservas();
+  }, 350);
+});
+
 const cambiarPestana = (nuevaPestana) => {
   pestanaActiva.value = nuevaPestana;
   paginaActual.value = 1;
   cargarReservas();
 };
+
 const cambiarPagina = (nuevaPagina) => {
-  // Solo avanza o retrocede si la página destino existe
   if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas.value) {
-    paginaActual.value = nuevaPagina; // Actualiza el número
-    cargarReservas(); // Llama al backend pidiendo el nuevo bloque de 10
+    paginaActual.value = nuevaPagina;
+    cargarReservas();
   }
 };
 
-onMounted(() => {
-  cargarReservas();
-});
-
-// FILTRO MAESTRO
-const reservasParaMostrar = computed(() => {
-  let filtradas = reservas.value;
-
-  // Ya no filtramos por pestaña aquí, solo dejamos el buscador de texto
-  if (filtroAplicado.value) {
-    const termino = filtroAplicado.value.toLowerCase();
-    filtradas = filtradas.filter((res) => {
-      const nombre = (res.cliente || res.cliente_nombre || "").toLowerCase();
-      const email = (res.cliente_email || "").toLowerCase();
-      const idReserva = (res._id || res.id || "").toLowerCase();
-      return (
-        nombre.includes(termino) ||
-        email.includes(termino) ||
-        idReserva.includes(termino)
-      );
-    });
-  }
-
-  return filtradas;
-});
-
-// 🔒 Los comprobantes ya no son públicos: se descargan con el token del admin
-// y se abren como un archivo local (blob) en una pestaña nueva.
-const verComprobante = async (urlComprobante) => {
-  // Abrimos la pestaña de inmediato (dentro del clic) para que el navegador no la bloquee.
-  const ventana = window.open("", "_blank");
+const cargarHuespedesEnCasa = async () => {
+  if (!auth.can(PERMISSIONS.DASHBOARD_READ)) return;
   try {
-    const { data } = await apiClient.get(urlComprobante, { responseType: "blob" });
-    const objectUrl = URL.createObjectURL(data);
-    if (ventana) {
-      ventana.location.href = objectUrl;
-    } else {
-      window.open(objectUrl, "_blank");
-    }
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-  } catch (error) {
-    ventana?.close();
-    Swal.fire("Error", "No se pudo cargar el comprobante de pago.", "error");
+    const data = await getDashboard();
+    totalHuespedesEnCasa.value = data?.stats?.in_house_guests ?? 0;
+  } catch {
+    totalHuespedesEnCasa.value = null;
   }
 };
 
-// 🟢 2. SEPARACIÓN DE LÓGICA: Solo llamadas a la API
-const procesarCambioEstadoAPI = async (id, nuevoEstado, datosReserva) => {
-  // 1. Actualizamos el estado de la reserva
-  await apiClient.patch(`/api/reservas/${id}/estado`, {
-    estado: nuevoEstado,
-    motivo_actualizacion: "Cambio de estado desde el panel",
+// El comprobante es privado: se descarga con el token y se abre en una pestaña nueva.
+const verComprobante = (reserva) => {
+  openReceipt(reserva.receipt_url).catch((error) => {
+    Swal.fire("Error", errorMessage(error, "No se pudo cargar el comprobante de pago."), "error");
   });
-
-  // 2. SI ES CHECK-IN, CREAMOS EL INVOICE
-  if (nuevoEstado === ESTADOS_RESERVA.OCUPADA && datosReserva) {
-    const payloadInvoice = {
-      booking_id: id,
-      guest_name: datosReserva.cliente_nombre || datosReserva.cliente,
-      guest_document: datosReserva.cliente_documento || "N/A",
-      guest_email: datosReserva.cliente_email || "N/A",
-      guest_phone: datosReserva.cliente_celular || "N/A",
-      room_name:
-        datosReserva.habitacion_nombre ||
-        datosReserva.habitacion ||
-        "Habitación",
-      check_in_date: datosReserva.fecha_entrada,
-      check_out_date: datosReserva.fecha_salida,
-      room_subtotal: datosReserva.monto_total || datosReserva.monto || 0,
-      status: "open",
-    };
-    await apiClient.post("/invoices/", payloadInvoice);
-  }
-
-  // 3. SI ES CHECK-OUT, CERRAMOS LA FACTURA
-  if (nuevoEstado === ESTADOS_RESERVA.FINALIZADA) {
-    try {
-      await apiClient.put(`/invoices/close-by-booking/${id}`);
-      console.log("Factura cerrada exitosamente");
-    } catch (invoiceError) {
-      console.warn(
-        "No se pudo cerrar la factura (quizás ya estaba cerrada o no existía).",
-      );
-    }
-  }
 };
 
-// 🟢 3. SEPARACIÓN DE LÓGICA: Solo Interfaz de Usuario (SweetAlert)
-const actualizarEstado = (id, nuevoEstado) => {
-  let titulo = "¿Actualizar estado?";
-  let texto = `¿Estás seguro de cambiar el estado a ${nuevoEstado}?`;
-  let textoBoton = "Sí, cambiar";
+const puede = (reserva, destino) => puedeCambiarEstado.value && canTransition(reserva.status, destino);
 
-  if (nuevoEstado === ESTADOS_RESERVA.CONFIRMADA) {
-    titulo = "¿Confirmar esta reserva?";
-    texto =
-      "El pago quedará validado y la llegada seguirá su curso normalmente.";
-    textoBoton = "Sí, confirmar";
-  } else if (nuevoEstado === ESTADOS_RESERVA.OCUPADA) {
-    titulo = "¿Registrar la llegada?";
-    texto = "Todo quedará preparado para recibir a este viajero.";
-    textoBoton = "Sí, hacer check-in";
-  } else if (nuevoEstado === ESTADOS_RESERVA.FINALIZADA) {
-    titulo = "¿Cerrar la estancia?";
-    texto =
-      "La salida quedará registrada y la cuenta se cerrará correctamente.";
-    textoBoton = "Sí, finalizar";
-  } else if (nuevoEstado === ESTADOS_RESERVA.PENDIENTE) {
-    titulo = "¿Restaurar seguimiento?";
-    texto = "La reserva volverá a estar activa para continuar su gestión.";
-    textoBoton = "Sí, restaurar";
-  }
+const TEXTOS_TRANSICION = {
+  [S.CONFIRMED]: {
+    titulo: "¿Aprobar el pago de esta reserva?",
+    texto: "El anticipo quedará validado y la reserva pasará a confirmada.",
+    boton: "Sí, aprobar pago",
+    exito: "Pago aprobado. La reserva quedó confirmada.",
+  },
+  [S.PENDING_PAYMENT]: {
+    titulo: "Rechazar comprobante",
+    texto: "Indica al huésped por qué no se pudo validar el pago. Podrá subir un nuevo comprobante.",
+    boton: "Rechazar comprobante",
+    exito: "Comprobante rechazado. Se notificó al huésped.",
+  },
+  [S.CHECKED_IN]: {
+    titulo: "¿Registrar la llegada?",
+    texto: "Se abrirá la cuenta (folio) del huésped.",
+    boton: "Sí, hacer check-in",
+    exito: "Todo preparado para la llegada de este viajero.",
+  },
+  [S.CHECKED_OUT]: {
+    titulo: "¿Cerrar la estancia?",
+    texto: "La salida quedará registrada y el folio del huésped se cerrará.",
+    boton: "Sí, hacer check-out",
+    exito: "Check-out registrado. El folio quedó cerrado.",
+  },
+  [S.CANCELLED]: {
+    titulo: "¿Deseas cancelar esta reserva?",
+    texto: "Las fechas volverán a quedar disponibles. El motivo se mostrará al huésped.",
+    boton: "Sí, cancelar",
+    exito: "La reserva fue cancelada.",
+  },
+};
 
-  Swal.fire({
-    title: titulo,
-    text: texto,
-    icon: "question",
+const actualizarEstado = async (reserva, destino) => {
+  const textos = TEXTOS_TRANSICION[destino];
+  const conMotivo = requiresReason(reserva.status, destino);
+
+  const result = await Swal.fire({
+    title: textos.titulo,
+    text: `${reserva.code} · ${reserva.guest?.full_name || ""}. ${textos.texto}`,
+    icon: conMotivo ? "warning" : "question",
+    input: conMotivo ? "textarea" : undefined,
+    inputLabel: conMotivo ? "Motivo (obligatorio)" : undefined,
+    inputPlaceholder: conMotivo ? "Ej.: el valor transferido no coincide con el anticipo" : undefined,
+    inputValidator: conMotivo
+      ? (value) => (!value || !value.trim() ? "Debes escribir un motivo." : undefined)
+      : undefined,
     showCancelButton: true,
     confirmButtonColor: COLOR_APPLE,
     cancelButtonColor: COLOR_FOREST,
-    confirmButtonText: textoBoton,
+    confirmButtonText: textos.boton,
     cancelButtonText: "Volver",
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      try {
-        const datosReserva = reservas.value.find((r) => (r.id || r._id) === id);
-
-        await procesarCambioEstadoAPI(id, nuevoEstado, datosReserva);
-        await cargarReservas();
-
-        Swal.fire({
-          title: "Movimiento actualizado",
-          text:
-            nuevoEstado === ESTADOS_RESERVA.OCUPADA
-              ? "Todo preparado para la llegada de este viajero"
-              : `La reserva quedó en estado ${nuevoEstado}.`,
-          icon: "success",
-          timer: 1700,
-          showConfirmButton: false,
-        });
-      } catch (error) {
-        console.error("Error al actualizar:", error);
-        Swal.fire(
-          "No fue posible actualizar esta reserva",
-          "Inténtalo nuevamente en unos segundos.",
-          "error",
-        );
-      }
-    }
   });
-};
+  if (!result.isConfirmed) return;
 
-const eliminarReserva = (id) => {
-  Swal.fire({
-    title: "¿Deseas cancelar esta reserva?",
-    text: "La habitación volverá a quedar disponible para otras llegadas.",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: COLOR_APPLE,
-    cancelButtonColor: COLOR_FOREST,
-    confirmButtonText: "Sí, cancelar",
-    cancelButtonText: "Seguir revisando",
-  }).then((result) => {
-    if (result.isConfirmed) {
-      actualizarEstado(id, ESTADOS_RESERVA.CANCELADA);
-    }
-  });
-};
-
-const getBadgeClass = (estado) => {
-  switch (estado) {
-    case ESTADOS_RESERVA.CONFIRMADA:
-      return "badge-soft-apple";
-    case ESTADOS_RESERVA.PENDIENTE:
-      return "badge-soft-sand";
-    case ESTADOS_RESERVA.OCUPADA:
-      return "badge-soft-sky";
-    case ESTADOS_RESERVA.FINALIZADA:
-      return "badge-soft-neutral";
-    case ESTADOS_RESERVA.CANCELADA:
-      return "badge-soft-rose";
-    default:
-      return "badge-soft-neutral";
-  }
-};
-
-// 🟢 Nueva función para los iconos
-const getBadgeIcon = (estado) => {
-  switch (estado) {
-    case ESTADOS_RESERVA.CONFIRMADA:
-      return "fa-solid fa-circle-check";
-    case ESTADOS_RESERVA.PENDIENTE:
-      return "fa-solid fa-clock";
-    case ESTADOS_RESERVA.OCUPADA:
-      return "fa-solid fa-house-chimney";
-    case ESTADOS_RESERVA.FINALIZADA:
-      return "fa-solid fa-circle-check";
-    case ESTADOS_RESERVA.CANCELADA:
-      return "fa-solid fa-ban";
-    default:
-      return "fa-solid fa-circle-info";
+  try {
+    await changeBookingStatus(reserva.id, destino, conMotivo ? result.value.trim() : null);
+    await Promise.all([cargarReservas(), cargarHuespedesEnCasa()]);
+    Swal.fire({
+      title: "Movimiento actualizado",
+      text: textos.exito,
+      icon: "success",
+      timer: 1700,
+      showConfirmButton: false,
+    });
+  } catch (error) {
+    Swal.fire(
+      "No fue posible actualizar esta reserva",
+      errorMessage(error, "Inténtalo nuevamente en unos segundos."),
+      "error",
+    );
   }
 };
 
@@ -310,43 +218,21 @@ const abrirModalEdicion = (reserva, checkIn = false) => {
 };
 
 const refrescarTabla = async () => {
-  await cargarReservas();
+  await Promise.all([cargarReservas(), cargarHuespedesEnCasa()]);
 };
 
 const mostrarModalFactura = ref(false);
 const reservaParaFactura = ref(null);
-const invoiceSeleccionada = ref(null);
-const cargandoFactura = ref(false);
 
-const abrirModalFactura = async (reserva) => {
-  const idReserva = reserva.id || reserva._id;
+const abrirModalFactura = (reserva) => {
   reservaParaFactura.value = reserva;
   mostrarModalFactura.value = true;
-  cargandoFactura.value = true;
-  invoiceSeleccionada.value = null;
-
-  try {
-    const { data } = await apiClient.get(`/invoices/by-booking/${idReserva}`);
-    invoiceSeleccionada.value = data;
-  } catch (error) {
-    console.error("No se encontró factura para esta reserva:", error);
-  } finally {
-    cargandoFactura.value = false;
-  }
 };
 
-const totalHuespedesEnCasa = ref(0);
-const cargarHuespedesDelDashboard = async () => {
-  try {
-    const response = await apiClient.get("/dashboard");
-    totalHuespedesEnCasa.value = response.data.stats.huespedesHoy;
-  } catch (error) {
-    console.error("No se pudo traer el dato de huéspedes:", error);
-  }
-};
 onMounted(() => {
+  configStore.fetchSiteConfig();
   cargarReservas();
-  cargarHuespedesDelDashboard();
+  cargarHuespedesEnCasa();
 });
 </script>
 
@@ -359,52 +245,51 @@ onMounted(() => {
         Gestión de Reservas
       </h2>
       <p class="text-muted mb-0">
-        Prioriza llegadas, salidas y estancias activas con una lectura más
-        clara.
+        Verifica los comprobantes de pago, prioriza llegadas y salidas y
+        acompaña las estancias activas.
       </p>
     </div>
 
     <div class="row g-3 mb-4">
       <div class="col-md-4">
-        <div class="eco-card border-0 shadow-sm p-3 rounded-4 stats-card h-100">
+        <div
+          class="eco-card border-0 shadow-sm p-3 rounded-4 stats-card h-100 clickable"
+          @click="cambiarPestana('pending_verification')"
+        >
           <div class="d-flex align-items-center justify-content-between">
             <div>
               <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
-                Confirmadas
+                Pagos por verificar
               </h6>
-              <h3 class="fw-bold mb-1 text-kofan">
-                {{
-                  reservas.filter(
-                    (r) => r.estado === ESTADOS_RESERVA.CONFIRMADA,
-                  ).length
-                }}
+              <h3 class="fw-bold mb-1 text-brand">
+                {{ resumen.pending_verification }}
               </h3>
-              <p class="text-muted small mb-0">Listas para ingreso</p>
+              <p class="text-muted small mb-0">Comprobantes por revisar</p>
             </div>
-            <div class="icon-box tone-apple-box">
-              <font-awesome-icon icon="fa-solid fa-leaf" />
+            <div class="icon-box tone-sky-box">
+              <font-awesome-icon icon="fa-solid fa-receipt" />
             </div>
           </div>
         </div>
       </div>
 
       <div class="col-md-4">
-        <div class="eco-card border-0 shadow-sm p-3 rounded-4 stats-card h-100">
+        <div
+          class="eco-card border-0 shadow-sm p-3 rounded-4 stats-card h-100 clickable"
+          @click="cambiarPestana('pending_payment')"
+        >
           <div class="d-flex align-items-center justify-content-between">
             <div>
               <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
-                Pendientes
+                Pendientes de pago
               </h6>
-              <h3 class="fw-bold mb-1 text-kofan">
-                {{
-                  reservas.filter((r) => r.estado === ESTADOS_RESERVA.PENDIENTE)
-                    .length
-                }}
+              <h3 class="fw-bold mb-1 text-brand">
+                {{ resumen.pending_payment }}
               </h3>
-              <p class="text-muted small mb-0">Por verificar pago</p>
+              <p class="text-muted small mb-0">Sin comprobante o rechazado</p>
             </div>
-            <div class="icon-box tone-sky-box">
-              <font-awesome-icon icon="fa-solid fa-calendar-day" />
+            <div class="icon-box tone-apple-box">
+              <font-awesome-icon icon="fa-solid fa-clock" />
             </div>
           </div>
         </div>
@@ -417,8 +302,8 @@ onMounted(() => {
               <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
                 Huéspedes Hoy
               </h6>
-              <h3 class="fw-bold mb-1 text-kofan">
-                {{ totalHuespedesEnCasa }}
+              <h3 class="fw-bold mb-1 text-brand">
+                {{ totalHuespedesEnCasa ?? "—" }}
               </h3>
               <p class="text-muted small mb-0">En las instalaciones</p>
             </div>
@@ -432,33 +317,26 @@ onMounted(() => {
 
     <div class="card eco-card border-0 shadow-sm rounded-4 overflow-hidden">
       <div
-        class="card-header bg-transparent p-3 border-0 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3"
+        class="card-header bg-transparent p-3 border-0 d-flex flex-column flex-xl-row justify-content-between align-items-center gap-3"
       >
         <div class="filter-chip-group">
           <button
+            v-for="tab in TABS"
+            :key="tab.key"
             class="filter-chip"
-            :class="{ active: pestanaActiva === 'proximas' }"
-            @click="cambiarPestana('proximas')"
+            :class="{ active: pestanaActiva === tab.key }"
+            @click="cambiarPestana(tab.key)"
           >
-            <font-awesome-icon icon="fa-solid fa-calendar-days" class="me-2" />
-            Por Llegar
-          </button>
-
-          <button
-            class="filter-chip"
-            :class="{ active: pestanaActiva === 'casa' }"
-            @click="cambiarPestana('casa')"
-          >
-            <font-awesome-icon icon="fa-solid fa-bed" class="me-2" /> En Casa
-          </button>
-
-          <button
-            class="filter-chip"
-            :class="{ active: pestanaActiva === 'historial' }"
-            @click="cambiarPestana('historial')"
-          >
-            <font-awesome-icon icon="fa-solid fa-broom" class="me-2" />
-            Historial
+            <font-awesome-icon :icon="tab.icon" class="me-2" />
+            {{ tab.label }}
+            <span
+              v-if="tab.key === 'pending_verification' && resumen.pending_verification"
+              class="badge rounded-pill bg-info text-dark ms-1"
+            >{{ resumen.pending_verification }}</span>
+            <span
+              v-if="tab.key === 'pending_payment' && resumen.pending_payment"
+              class="badge rounded-pill bg-warning text-dark ms-1"
+            >{{ resumen.pending_payment }}</span>
           </button>
         </div>
 
@@ -473,7 +351,7 @@ onMounted(() => {
             v-model="filtro"
             type="text"
             class="form-control border-0 shadow-none"
-            placeholder="Buscar viajero o reserva..."
+            placeholder="Buscar por código, viajero, correo o documento..."
           />
         </div>
       </div>
@@ -497,7 +375,7 @@ onMounted(() => {
         </div>
 
         <div
-          v-else-if="reservasParaMostrar.length === 0"
+          v-else-if="reservas.length === 0"
           class="d-flex flex-column justify-content-center align-items-center h-100 py-5 empty-state-copy"
         >
           <font-awesome-icon
@@ -515,7 +393,7 @@ onMounted(() => {
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th class="ps-4 py-3 text-muted small fw-bold">ID / CLIENTE</th>
+                <th class="ps-4 py-3 text-muted small fw-bold">CÓDIGO / CLIENTE</th>
                 <th class="py-3 text-muted small fw-bold">HABITACIÓN</th>
                 <th class="py-3 text-muted small fw-bold">FECHAS (IN - OUT)</th>
                 <th class="py-3 text-muted small fw-bold">TOTAL</th>
@@ -526,143 +404,141 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="res in reservasParaMostrar" :key="res._id || res.id">
+              <tr v-for="res in reservas" :key="res.id">
                 <td class="ps-4">
                   <div class="fw-bold text-dark">
-                    RES-{{ (res.id || res._id || "").slice(-6).toUpperCase() }}
+                    {{ res.code }}
+                    <span v-if="res.source === 'manual'" class="badge bg-light text-muted border ms-1 fw-normal">Recepción</span>
                   </div>
                   <div class="text-dark fw-bold" style="font-size: 0.9rem">
-                    {{ res.cliente || res.cliente_nombre }}
+                    {{ res.guest?.full_name }}
                   </div>
                   <div class="text-muted mt-1" style="font-size: 0.75rem">
                     <font-awesome-icon icon="fa-solid fa-phone" class="me-1" />
-                    {{ res.cliente_celular || "Sin celular" }} <br />
+                    {{ res.guest?.phone || "Sin celular" }} <br />
                     <font-awesome-icon icon="fa-solid fa-envelope" class="me-1" />
-                    {{ res.cliente_email || "Sin correo" }}
+                    {{ res.guest?.email || "Sin correo" }}
                   </div>
                 </td>
-                <td>{{ res.habitacion || res.habitacion_nombre || "N/A" }}</td>
+                <td>
+                  <div class="fw-bold">{{ res.room?.name || "N/A" }}</div>
+                  <div v-if="res.room?.number" class="small text-muted">N.º {{ res.room.number }}</div>
+                </td>
                 <td>
                   <div class="small text-muted">
-                    <strong>Entra:</strong> {{ res.fecha_entrada }}
+                    <strong>Entra:</strong> {{ formatDate(res.check_in) }}
                   </div>
                   <div class="small text-muted">
-                    <strong>Sale:</strong> {{ res.fecha_salida }}
+                    <strong>Sale:</strong> {{ formatDate(res.check_out) }}
                   </div>
+                  <div class="small text-muted">{{ res.nights }} noche(s)</div>
                 </td>
-                <td class="fw-bold text-success">
-                  ${{ (res.monto_total || res.monto || 0).toLocaleString() }}
+                <td>
+                  <div class="fw-bold text-success">{{ money(res.total_amount) }}</div>
+                  <div class="small text-muted">Anticipo: {{ money(res.deposit_amount) }}</div>
+                  <div
+                    v-if="res.calculated_amount && res.total_amount !== res.calculated_amount"
+                    class="small text-warning-emphasis"
+                    :title="`Tarifa calculada: ${money(res.calculated_amount)}`"
+                  >
+                    Precio ajustado
+                  </div>
                 </td>
                 <td>
                   <span
-                    class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center fw-normal text-capitalize"
-                    :class="getBadgeClass(res.estado)"
+                    class="badge rounded-pill px-3 py-2 d-inline-flex align-items-center fw-normal"
+                    :class="SOFT_BADGES[res.status] || 'badge-soft-neutral'"
                   >
-                    <font-awesome-icon :icon="getBadgeIcon(res.estado)" class="me-2" />
-                    {{ res.estado }}
+                    <font-awesome-icon :icon="statusMeta(res.status).icon" class="me-2" />
+                    {{ statusMeta(res.status).label }}
                   </span>
+                  <div
+                    v-if="res.status === 'pending_payment' && res.payment_due_at"
+                    class="small text-muted mt-1"
+                  >
+                    Vence: {{ formatDateTime(res.payment_due_at) }}
+                  </div>
+                  <div
+                    v-if="res.status_reason && ['pending_payment', 'cancelled'].includes(res.status)"
+                    class="small text-muted mt-1 reason-text"
+                    :title="res.status_reason"
+                  >
+                    Motivo: {{ res.status_reason }}
+                  </div>
                 </td>
                 <td class="text-center align-middle">
-                  <div class="d-flex justify-content-center gap-2">
+                  <div class="d-flex justify-content-center flex-wrap gap-2">
                     <button
-                      v-if="res.comprobante_url"
+                      v-if="res.has_receipt && res.receipt_url && puedeVerComprobantes"
                       type="button"
-                      @click="verComprobante(res.comprobante_url)"
-                      class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Ver Comprobante de Pago"
+                      @click="verComprobante(res)"
+                      class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Ver comprobante de pago"
                     >
                       <font-awesome-icon icon="fa-solid fa-images" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="res.estado === ESTADOS_RESERVA.PENDIENTE"
-                      @click="
-                        actualizarEstado(
-                          res.id || res._id,
-                          ESTADOS_RESERVA.CONFIRMADA,
-                        )
-                      "
-                      class="btn btn-sm btn-outline-success rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Confirmar Pago"
+                      v-if="puede(res, 'confirmed')"
+                      @click="actualizarEstado(res, 'confirmed')"
+                      class="btn btn-sm btn-outline-success rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Aprobar pago"
                     >
                       <font-awesome-icon icon="fa-solid fa-check" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="
-                        [
-                          ESTADOS_RESERVA.PENDIENTE,
-                          ESTADOS_RESERVA.CONFIRMADA,
-                        ].includes(res.estado)
-                      "
-                      @click="eliminarReserva(res.id || res._id)"
-                      class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Cancelar Reserva"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-xmark" class="fs-6" />
-                    </button>
-
-                    <button
-                      v-if="res.estado === ESTADOS_RESERVA.CANCELADA"
-                      @click="
-                        actualizarEstado(
-                          res.id || res._id,
-                          ESTADOS_RESERVA.PENDIENTE,
-                        )
-                      "
-                      class="btn btn-sm btn-outline-warning rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Restaurar Reserva"
+                      v-if="res.status === 'pending_verification' && puede(res, 'pending_payment')"
+                      @click="actualizarEstado(res, 'pending_payment')"
+                      class="btn btn-sm btn-outline-warning rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Rechazar comprobante"
                     >
                       <font-awesome-icon icon="fa-solid fa-rotate-left" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="res.estado === ESTADOS_RESERVA.CONFIRMADA"
+                      v-if="puede(res, 'checked_in')"
                       @click="abrirModalEdicion(res, true)"
-                      class="btn btn-sm btn-outline-primary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Hacer Check-in"
+                      class="btn btn-sm btn-outline-primary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Hacer check-in"
                     >
                       <font-awesome-icon icon="fa-solid fa-door-open" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="res.estado === ESTADOS_RESERVA.OCUPADA"
+                      v-if="puedeEditar && !['checked_out', 'cancelled'].includes(res.status)"
                       @click="abrirModalEdicion(res, false)"
-                      class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Editar Detalles o Agregar Consumos"
+                      class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Editar datos de la reserva"
                     >
-                      <font-awesome-icon :icon="['far', 'pen-to-square']" class="fs-6" />
+                      <font-awesome-icon icon="fa-regular fa-pen-to-square" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="res.estado === ESTADOS_RESERVA.OCUPADA"
-                      @click="
-                        actualizarEstado(
-                          res.id || res._id,
-                          ESTADOS_RESERVA.FINALIZADA,
-                        )
-                      "
-                      class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Hacer Check-out"
+                      v-if="puede(res, 'checked_out')"
+                      @click="actualizarEstado(res, 'checked_out')"
+                      class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Hacer check-out"
                     >
                       <font-awesome-icon icon="fa-solid fa-right-from-bracket" class="fs-6" />
                     </button>
 
                     <button
-                      v-if="res.estado === ESTADOS_RESERVA.FINALIZADA"
+                      v-if="puedeVerFolio && ['checked_in', 'checked_out'].includes(res.status)"
                       @click="abrirModalFactura(res)"
-                      class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px"
-                      title="Ver Estado de Cuenta / Factura"
+                      class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Ver folio / cuenta del huésped"
                     >
                       <font-awesome-icon icon="fa-solid fa-receipt" class="fs-6" />
+                    </button>
+
+                    <button
+                      v-if="puede(res, 'cancelled')"
+                      @click="actualizarEstado(res, 'cancelled')"
+                      class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
+                      title="Cancelar reserva"
+                    >
+                      <font-awesome-icon icon="fa-solid fa-xmark" class="fs-6" />
                     </button>
                   </div>
                 </td>
@@ -676,7 +552,7 @@ onMounted(() => {
           class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-light border-top"
         >
           <span class="text-muted small fw-bold mb-2 mb-md-0">
-            Mostrando página {{ paginaActual }} de {{ totalPaginas }}
+            Mostrando página {{ paginaActual }} de {{ totalPaginas }} · {{ totalRegistros }} reservas
           </span>
           <div class="btn-group shadow-sm">
             <button
@@ -688,7 +564,7 @@ onMounted(() => {
             </button>
             <button
               @click="cambiarPagina(paginaActual + 1)"
-              :disabled="paginaActual === totalPaginas"
+              :disabled="paginaActual >= totalPaginas"
               class="btn btn-sm btn-white border"
             >
               Siguiente <font-awesome-icon icon="fa-solid fa-chevron-right" class="ms-1" />
@@ -752,6 +628,22 @@ onMounted(() => {
 .tone-bed-box {
   background: rgba(36, 64, 58, 0.1);
   color: var(--k-forest);
+}
+
+.action-btn {
+  width: 35px;
+  height: 35px;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.reason-text {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .small-label {

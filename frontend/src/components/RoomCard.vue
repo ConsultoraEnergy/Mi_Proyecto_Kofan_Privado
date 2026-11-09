@@ -1,31 +1,33 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed } from "vue";
 import { useReservaStore } from "@/stores/reserva";
+import { assetUrl } from "@/config/env";
+import { formatMoney } from "@/utils/format";
+import placeholderImg from "@/img/habitacion1.jpg";
 
 const props = defineProps({
   habitacion: {
     type: Object,
-    required: true
-  }
+    required: true,
+  },
 });
 
-const emit = defineEmits(['reservar']);
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const resStore = useReservaStore();
 
 // Estado para el hover y el modal
 const isHovered = ref(false);
-const mostrarDetalles = ref(false); 
+const mostrarDetalles = ref(false);
 const indiceFotoActiva = ref(0);
 
 // --- LÓGICA DE IMÁGENES ---
 const imagenes = computed(() => {
-  if (props.habitacion.images && props.habitacion.images.length > 0) {
-    return props.habitacion.images.slice(0, 5).map(img => `${API_BASE_URL}${img}`);
+  const { images, main_image: mainImage } = props.habitacion;
+  if (images?.length) {
+    const ordenadas = mainImage && images.includes(mainImage) ? [mainImage, ...images.filter((i) => i !== mainImage)] : images;
+    return ordenadas.slice(0, 5).map(assetUrl);
   }
-  if (props.habitacion.main_image) {
-    return [`${API_BASE_URL}${props.habitacion.main_image}`];
-  }
-  return ['https://via.placeholder.com/800x500?text=Kofan+Hospedaje'];
+  if (mainImage) return [assetUrl(mainImage)];
+  return [placeholderImg];
 });
 
 const fotoPrincipal = computed(() => imagenes.value[indiceFotoActiva.value]);
@@ -54,38 +56,28 @@ const mapaIconos = {
   "Vista a la Selva": ["fas", "binoculars"],
   "Malla Catamarán": ["fas", "table-cells-large"],
   "Tina / Jacuzzi": ["fas", "hot-tub-person"],
-  "Balcón": ["fas", "door-open"]
+  "Balcón": ["fas", "door-open"],
 };
 
 const amenidadesSeguras = computed(() => props.habitacion.amenities || []);
 
-const formatPrice = (v) => {
-  return (v || 0).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-};
-
 // --- ACCIONES ---
-const handleReservar = () => { 
-  cerrarDetalles(); // 🟢 ¡Esto cierra el modal visualmente Y devuelve el scroll!
-  
-  resStore.habitacionSeleccionada = props.habitacion; 
-  resStore.isModalOpen = true; 
+const abrirDetalles = () => {
+  mostrarDetalles.value = true;
+  document.body.style.overflow = "hidden";
 };
 
-const abrirDetalles = () => { 
-  mostrarDetalles.value = true; 
-  document.body.style.overflow = 'hidden'; 
+const cerrarDetalles = () => {
+  mostrarDetalles.value = false;
+  document.body.style.overflow = "";
 };
 
-const cerrarDetalles = () => { 
-  mostrarDetalles.value = false; 
-  document.body.style.overflow = 'auto'; 
+const handleReservar = () => {
+  cerrarDetalles();
+  resStore.openModal(props.habitacion);
 };
-const resStore = useReservaStore();
-// Agrega esto al final de tu <script setup> en RoomCard.vue
-  defineExpose({ 
-  abrirDetalles, 
-  habitacion: props.habitacion 
-});
+
+defineExpose({ abrirDetalles });
 </script>
 
 <template>
@@ -110,7 +102,7 @@ const resStore = useReservaStore();
         
         <div class="mt-auto d-flex justify-content-between align-items-end">
           <div>
-            <span class="precio-destacado fw-bold">{{ formatPrice(habitacion.price) }}</span>
+            <span class="precio-destacado fw-bold">{{ formatMoney(habitacion.price_per_night) }}</span>
             <span class="text-muted small"> /noche</span>
           </div>
           <button @click="handleReservar" class="btn btn-link p-0 btn-reservar-link text-decoration-none fw-bold">
@@ -121,7 +113,7 @@ const resStore = useReservaStore();
     </div>
 
     <div v-if="mostrarDetalles" class="modal-overlay d-flex justify-content-center align-items-center" @click.self="cerrarDetalles">
-      <div class="modal-kofan bg-white rounded-0 overflow-hidden shadow-lg d-flex flex-column flex-lg-row position-relative">
+      <div class="modal-brand bg-white rounded-0 overflow-hidden shadow-lg d-flex flex-column flex-lg-row position-relative">
         
         <button class="btn-close-modal position-absolute top-0 end-0 m-3 z-3 bg-white rounded-circle shadow-sm" @click="cerrarDetalles">
           <font-awesome-icon :icon="['fas', 'xmark']" class="fs-5 text-dark" />
@@ -145,11 +137,11 @@ const resStore = useReservaStore();
             <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-0">
               <font-awesome-icon :icon="['fas', 'user-group']" class="me-1" /> Hasta {{ habitacion.capacity }} personas
             </span>
-            <span v-if="habitacion.num_cuartos" class="d-flex align-items-center">
-              <font-awesome-icon :icon="['fas', 'door-open']" class="me-1" /> {{ habitacion.num_cuartos }} Hab.
+            <span v-if="habitacion.bedrooms" class="d-flex align-items-center">
+              <font-awesome-icon :icon="['fas', 'door-open']" class="me-1" /> {{ habitacion.bedrooms }} Hab.
             </span>
-            <span v-if="habitacion.tipo_camas" class="d-flex align-items-center">
-              <font-awesome-icon :icon="['fas', 'moon']" class="me-1" /> {{ habitacion.tipo_camas }}
+            <span v-if="habitacion.beds" class="d-flex align-items-center">
+              <font-awesome-icon :icon="['fas', 'moon']" class="me-1" /> {{ habitacion.beds }}
             </span>
           </div>
 
@@ -171,7 +163,7 @@ const resStore = useReservaStore();
           <div class="mt-auto pt-4 border-top d-flex justify-content-between align-items-center">
             <div>
               <p class="mb-0 text-muted small text-uppercase" style="letter-spacing: 1px;">Precio por noche</p>
-              <span class="fs-3 fw-bold text-success-kofan">{{ formatPrice(habitacion.price) }}</span>
+              <span class="fs-3 fw-bold text-success-brand">{{ formatMoney(habitacion.price_per_night) }}</span>
             </div>
             <button @click="handleReservar" class="btn btn-reservar-modal px-4 py-2 rounded-0 shadow-sm fw-bold">
               Reservar ahora <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-2" />
@@ -271,7 +263,7 @@ const resStore = useReservaStore();
   padding: 20px;
 }
 
-.modal-kofan {
+.modal-brand {
   width: 100%;
   max-width: 1000px;
   max-height: 90vh;
@@ -298,7 +290,7 @@ const resStore = useReservaStore();
   font-size: 1rem;
 }
 
-.text-success-kofan {
+.text-success-brand {
   color: #114232;
 }
 
@@ -347,7 +339,7 @@ const resStore = useReservaStore();
 }
 
 @media (max-width: 991px) {
-  .modal-kofan { flex-direction: column; max-height: 95vh; }
+  .modal-brand { flex-direction: column; max-height: 95vh; }
   .modal-gallery { height: 250px; min-height: 250px; flex-shrink: 0; }
   .modal-info { flex-grow: 1; overflow-y: auto; }
 }

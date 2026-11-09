@@ -1,101 +1,62 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useReservaStore } from "@/stores/reserva";
-import { useConfigStore } from '@/stores/config';
-import apiClient from "@/api/apiClient";
-import { getRooms } from "@/services/roomService";
+import { useConfigStore } from "@/stores/config";
+import { listRooms, listRoomTypes } from "@/api/rooms";
+import { listGallery } from "@/api/content";
+import { assetUrl } from "@/config/env";
 import RoomCard from "@/components/RoomCard.vue";
-import SearchAvailability from '@/components/SearchAvailability.vue';
-import { useRouter } from 'vue-router';
+import SearchAvailability from "@/components/SearchAvailability.vue";
 
-const router = useRouter();
-// Stores
 const resStore = useReservaStore();
 const configStore = useConfigStore();
 
 // Estados
 const fotosPreview = ref([]);
-const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-// Estados del Catálogo
+const roomTypes = ref([]);
 const allAccommodations = ref([]);
 const loadingRooms = ref(false);
 const errorRooms = ref("");
 
+// Tarjetas renderizadas (por id de habitación) para abrir sus detalles desde el buscador
+const tarjetas = new Map();
+const registrarTarjeta = (id, el) => {
+  if (el) tarjetas.set(id, el);
+  else tarjetas.delete(id);
+};
 
-// 1. Agrega esta variable arriba junto a tus otras variables ref()
-const tarjetasRef = ref([]);
+const procesarBusqueda = ({ habitacion, fechas }) => {
+  if (fechas?.start && fechas?.end) {
+    resStore.selectedDateRange = { start: new Date(fechas.start), end: new Date(fechas.end) };
+  }
 
-// 2. Reemplaza tu procesarBusqueda
-const procesarBusqueda = (datos) => {
-  try {
-    // A. Guardamos las fechas (YA DESCOMENTADAS Y CORREGIDAS)
-    if (datos.fechas && datos.fechas.start && datos.fechas.end) {
-      resStore.selectedDateRange = {
-        start: new Date(datos.fechas.start),
-        end: new Date(datos.fechas.end)
-      };
-    }
-
-    // B. Buscamos cuál es la tarjeta que encontró el backend
-    // Usamos el nombre para que no haya problemas de _id de MongoDB
-    const tarjetaEncontrada = tarjetasRef.value.find(
-      (tarjeta) => tarjeta.habitacion?.name === datos.habitacion.name
-    );
-
-    // C. Si la encontramos, ¡abrimos su Modal Hermoso a control remoto!
-    if (tarjetaEncontrada) {
-      tarjetaEncontrada.abrirDetalles();
-      
-      // Opcional: Hacemos un scroll suave hacia abajo para que el usuario la vea
-      window.scrollTo({ top: 500, behavior: 'smooth' });
-    } else {
-      console.error("No se encontró la tarjeta en la pantalla");
-    }
-
-  } catch (error) {
-    console.error("Error al abrir los detalles:", error);
+  const tarjeta = tarjetas.get(habitacion.id);
+  if (tarjeta) {
+    tarjeta.abrirDetalles();
+    window.scrollTo({ top: 500, behavior: "smooth" });
+  } else {
+    // La habitación no está en el catálogo visible: se abre directamente la reserva.
+    resStore.openModal(habitacion);
   }
 };
 
-// --- LÓGICA DE GALERÍA ---
+// --- GALERÍA ---
 const cargarGaleria = async () => {
   try {
-    const { data } = await apiClient.get("/gallery/");
-    fotosPreview.value = data.slice(0, 6);
+    fotosPreview.value = (await listGallery()).slice(0, 6);
   } catch {
     fotosPreview.value = [];
   }
 };
 
-// --- LÓGICA DE CATÁLOGO ---
-const obtenerListaHabitaciones = (response) => {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response)) return response;
-  return [];
-};
-
-const obtenerEstadoActivo = (habitacion) => {
-  const valor = habitacion?.active;
-  if (valor === undefined || valor === null) return true;
-  if (typeof valor === "string") return valor.toLowerCase() !== "false";
-  return valor !== false;
-};
-
-const normalizarTipoAlojamiento = (type = "") => {
-  const tipo = String(type).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  if (!tipo) return "individual";
-  if (["cabana", "cabanas", "cabin", "cabins"].includes(tipo) || tipo.includes("cab")) return "cabana";
-  if (["family", "familiar", "familiares"].includes(tipo) || tipo.includes("fam")) return "familiar";
-  return "individual";
-};
-
+// --- CATÁLOGO ---
 const cargarCatalogo = async () => {
   loadingRooms.value = true;
   errorRooms.value = "";
   try {
-    const response = await getRooms();
-    allAccommodations.value = obtenerListaHabitaciones(response);
+    const [page, types] = await Promise.all([listRooms({ limit: 100 }), listRoomTypes()]);
+    allAccommodations.value = page.items;
+    roomTypes.value = types;
   } catch (error) {
     console.error("Error al cargar los alojamientos:", error);
     errorRooms.value = "No fue posible cargar las habitaciones en este momento.";
@@ -105,25 +66,25 @@ const cargarCatalogo = async () => {
   }
 };
 
-// --- COMPUTADOS PARA CATÁLOGO ---
-const alojamientosActivos = computed(() =>
-  allAccommodations.value.filter((acomodacion) => obtenerEstadoActivo(acomodacion))
+/** Secciones del catálogo agrupadas por tipo de habitación (orden del catálogo de tipos). */
+const secciones = computed(() => {
+  const grupos = new Map(roomTypes.value.map((t) => [t.code, { code: t.code, name: t.name, rooms: [] }]));
+  const otros = { code: "otros", name: "Otros alojamientos", rooms: [] };
+  for (const room of allAccommodations.value) {
+    const code = room.room_type?.code;
+    if (code && !grupos.has(code)) grupos.set(code, { code, name: room.room_type.name, rooms: [] });
+    (code ? grupos.get(code) : otros).rooms.push(room);
+  }
+  return [...grupos.values(), otros].filter((g) => g.rooms.length > 0);
+});
+
+// Ubicación y mapa a partir de la dirección configurada (solo si hay dirección o ciudad).
+const tieneUbicacion = computed(() => !!(configStore.data.address || configStore.data.city));
+const ubicacionTexto = computed(() =>
+  [configStore.data.address, configStore.data.city, configStore.data.country].filter(Boolean).join(", "),
 );
-
-const filtrarPorTipo = (tipoEsperado) =>
-  alojamientosActivos.value.filter(
-    (acomodacion) => normalizarTipoAlojamiento(acomodacion?.type) === tipoEsperado
-  );
-
-const cabanasIndependientes = computed(() => filtrarPorTipo("cabana"));
-const habitacionesFamiliares = computed(() => filtrarPorTipo("familiar"));
-const habitacionesIndividuales = computed(() => filtrarPorTipo("individual"));
-
-const hayResultados = computed(
-  () =>
-    cabanasIndependientes.value.length +
-    habitacionesFamiliares.value.length +
-    habitacionesIndividuales.value.length > 0
+const mapaUrl = computed(
+  () => `https://www.google.com/maps?q=${encodeURIComponent(ubicacionTexto.value)}&output=embed`,
 );
 
 onMounted(() => {
@@ -134,7 +95,8 @@ onMounted(() => {
 
 <template>
   <main>
-    <section id="hero-kofan" class="position-relative">
+    <section id="hero-brand" class="position-relative">
+      <h1 class="visually-hidden">{{ configStore.hotelName }}</h1>
       <div class="hero-overlay"></div>
       
       <!-- CONTENEDOR DEL BUSCADOR FLOTANTE EN EL CENTRO -->
@@ -159,55 +121,22 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-else-if="!hayResultados" class="container pb-5 text-center">
+      <div v-else-if="secciones.length === 0" class="container pb-5 text-center">
         <div class="empty-state">Aún no hay alojamientos disponibles para mostrar.</div>
       </div>
 
       <template v-else>
-        <div v-if="cabanasIndependientes.length > 0" class="container mb-5">
+        <div v-for="(seccion, idx) in secciones" :key="seccion.code" class="container" :class="idx === secciones.length - 1 ? 'pb-5' : 'mb-5'">
           <div class="d-flex align-items-center mb-4">
             <div class="linea-verde"></div>
-            <h3 class="mx-3 fw-bold verde-kofan titulo-categoria">Cabañas Independientes</h3>
+            <h3 class="mx-3 fw-bold verde-brand titulo-categoria">{{ seccion.name }}</h3>
           </div>
           <div class="rooms-grid">
             <RoomCard
-              v-for="c in cabanasIndependientes"
-              :key="c.id || c._id"
-              :habitacion="c"
-              @reservar="resStore.openModal($event)"
-              ref="tarjetasRef"
-            />
-          </div>
-        </div>
-
-        <div v-if="habitacionesFamiliares.length > 0" class="container mb-5">
-          <div class="d-flex align-items-center mb-4">
-            <div class="linea-verde"></div>
-            <h3 class="mx-3 fw-bold verde-kofan titulo-categoria">Habitaciones Familiares</h3>
-          </div>
-          <div class="rooms-grid">
-            <RoomCard
-              v-for="h in habitacionesFamiliares"
-              :key="h.id || h._id"
-              :habitacion="h"
-              @reservar="resStore.openModal($event)"
-              ref="tarjetasRef"
-            />
-          </div>
-        </div>
-
-        <div v-if="habitacionesIndividuales.length > 0" class="container pb-5">
-          <div class="d-flex align-items-center mb-4">
-            <div class="linea-verde"></div>
-            <h3 class="mx-3 fw-bold verde-kofan titulo-categoria">Habitaciones Individuales</h3>
-          </div>
-          <div class="rooms-grid">
-            <RoomCard
-              v-for="h in habitacionesIndividuales"
-              :key="h.id || h._id"
-              :habitacion="h"
-              @reservar="resStore.openModal($event)"
-              ref="tarjetasRef"
+              v-for="room in seccion.rooms"
+              :key="room.id"
+              :habitacion="room"
+              :ref="(el) => registrarTarjeta(room.id, el)"
             />
           </div>
         </div>
@@ -230,7 +159,7 @@ onMounted(() => {
           <div class="card-actividad">
             <div class="icono-wrapper"><font-awesome-icon icon="fa-solid fa-hands-holding" /></div>
             <h3>Cultura Viva</h3>
-            <p>Conéctate con las tradiciones y saberes de la comunidad Kofán.</p>
+            <p>Conéctate con las tradiciones y saberes de la región.</p>
           </div>
           <div class="card-actividad">
             <div class="icono-wrapper"><font-awesome-icon icon="fa-solid fa-moon" /></div>
@@ -245,12 +174,12 @@ onMounted(() => {
     <section v-if="fotosPreview.length > 0" class="galeria-preview py-5">
       <div class="container">
         <div class="text-center mb-4">
-          <span class="subtitulo">Momentos Kofán</span>
+          <span class="subtitulo">Momentos {{ configStore.hotelName }}</span>
           <h2 class="titulo-seccion">Un vistazo a nuestro paraíso</h2>
         </div>
         <div class="preview-grid">
           <div v-for="foto in fotosPreview" :key="foto.id" class="preview-item" @click="$router.push({ name: 'gallery' })">
-            <img :src="baseUrl + foto.url" :alt="foto.titulo || 'Kofán'" @error="$event.target.style.display='none'" />
+            <img :src="assetUrl(foto.url)" :alt="foto.title || configStore.hotelName" loading="lazy" @error="$event.target.style.display='none'" />
           </div>
           <div class="preview-item preview-item-cta" @click="$router.push({ name: 'gallery' })">
             <div class="cta-content">
@@ -263,20 +192,20 @@ onMounted(() => {
     </section>
 
     <!-- 5. UBICACIÓN -->
-    <section class="ubicacion" id="donde-estamos">
+    <section v-if="tieneUbicacion" class="ubicacion" id="donde-estamos">
       <div class="divisor-entrada-verde">
         <svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,0V120H1200V0c-150,80-350,120-600,120S150,80,0,0Z" fill="var(--k-forest-soft)"></path></svg>
       </div>
       <div class="container mt-5">
         <div class="text-center mb-5">
           <span class="subtitulo-blanco">¿Cómo llegar?</span>
-          <h2 class="titulo-seccion-blanco">Nuestra ubicación en el Putumayo</h2>
+          <h2 class="titulo-seccion-blanco">Nuestra ubicación<template v-if="configStore.data.city"> en {{ configStore.data.city }}</template></h2>
           <p class="parrafo-ubicacion">
-            Nos encontramos en <strong>{{ configStore.data.address || 'Puerto Asís, Putumayo' }}</strong>.
+            Nos encontramos en <strong>{{ ubicacionTexto }}</strong>.
           </p>
         </div>
         <div class="mapa-wrapper shadow-soft">
-          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.431284566359!2d-76.50537872421477!3d0.5055018994892419!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e2a1dd0b8ccb649%3A0x6b83f3fc3c2cc0db!2sPuerto%20As%C3%ADs%2C%20Putumayo!5e0!3m2!1ses!2sco!4v1710971000000!5m2!1ses!2sco" width="100%" height="450" style="border: 0" loading="lazy"></iframe>
+          <iframe :src="mapaUrl" :title="`Mapa de ${configStore.hotelName}`" width="100%" height="450" style="border: 0" loading="lazy"></iframe>
         </div>
       </div>
     </section>
@@ -301,7 +230,7 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
 /* ==========================================
    NUEVO HERO SECTION (Fondo + Buscador)
 ========================================== */
-#hero-kofan {
+#hero-brand {
   position: relative;
   min-height: 104vh; 
   display: flex;
@@ -428,7 +357,7 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
   background-color: var(--k-cream);
 }
 
-.verde-kofan { color: var(--k-forest); }
+.verde-brand { color: var(--k-forest); }
 .linea-verde { height: 4px; width: 50px; background-color: var(--k-apple); border-radius: 2px; }
 
 .titulo-categoria {

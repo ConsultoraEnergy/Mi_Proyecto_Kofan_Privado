@@ -3,8 +3,8 @@
     <div class="auth-container row g-0">
       <div class="col-md-5 d-none d-md-block auth-image-panel">
         <div class="auth-overlay d-flex flex-column justify-content-end h-100 p-5">
-          <p class="eyebrow-text mb-2">Kofán Hospedaje</p>
-          <h2 class="titulo-auth mb-2">Bienvenido de vuelta a la calma de Kofán 🌿</h2>
+          <p class="eyebrow-text mb-2">{{ configStore.hotelName }}</p>
+          <h2 class="titulo-auth mb-2">Bienvenido de vuelta a la calma 🌿</h2>
           <p class="helper-text mb-0">
             Inicia sesión para continuar tu experiencia con serenidad.
           </p>
@@ -13,43 +13,52 @@
 
       <div class="col-md-7 p-4 p-lg-5 auth-form-panel d-flex flex-column justify-content-center">
         <div class="text-center mb-4">
-          <img src="@/img/Kofan.png" width="100" alt="Logo" />
+          <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="100" :alt="configStore.hotelName" class="auth-logo" />
+          <font-awesome-icon v-else icon="fa-solid fa-leaf" class="auth-logo-icon" />
           <h3 class="mt-3 mb-2 auth-heading">Iniciar Sesión</h3>
           <p class="helper-text mb-0">Tu espacio de gestión está listo para recibirte.</p>
         </div>
 
         <form @submit.prevent="handleLogin">
           <div class="mb-3">
-            <label class="form-label auth-label">Correo Electrónico</label>
+            <label class="form-label auth-label" for="login-email">Correo Electrónico</label>
             <div class="input-group auth-input-group">
               <span class="input-group-text border-end-0"><font-awesome-icon icon="fa-solid fa-envelope" /></span>
               <input
+                id="login-email"
                 v-model="email"
                 type="email"
                 class="form-control auth-input border-start-0"
-                placeholder="tu correo en Kofán"
+                placeholder="tu correo electrónico"
+                autocomplete="email"
                 required
               />
             </div>
           </div>
 
-          <div class="mb-4">
-            <label class="form-label auth-label">Contraseña</label>
+          <div class="mb-2">
+            <label class="form-label auth-label" for="login-password">Contraseña</label>
             <div class="input-group auth-input-group">
               <span class="input-group-text border-end-0"><font-awesome-icon icon="fa-solid fa-lock" /></span>
               <input
+                id="login-password"
                 v-model="password"
                 type="password"
                 class="form-control auth-input border-start-0"
                 placeholder="tu clave serena"
+                autocomplete="current-password"
                 required
               />
             </div>
           </div>
 
+          <div class="text-end mb-4">
+            <router-link :to="{ name: 'forgot-password' }" class="auth-link small">¿Olvidaste tu contraseña?</router-link>
+          </div>
+
           <button
             type="submit"
-            class="btn btn-kofan auth-button w-100 py-2 mb-3"
+            class="btn btn-brand auth-button w-100 py-2 mb-3"
             :disabled="isLoading"
           >
             <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
@@ -85,7 +94,7 @@
 }
 
 .auth-image-panel {
-  background: url("@/img/entradaKofan.jpg") center/cover;
+  background: url("@/img/portadaimg2.jpg") center/cover;
   position: relative;
   min-height: 540px;
 }
@@ -176,21 +185,40 @@
 .auth-link:hover {
   text-decoration: underline;
 }
+
+.auth-logo {
+  max-height: 100px;
+  object-fit: contain;
+}
+
+.auth-logo-icon {
+  font-size: 3rem;
+  color: var(--k-forest);
+}
 </style>
 
 <script setup>
 import { ref } from "vue";
-import { useRouter } from "vue-router";
-import { useAuthStore } from "@/stores/auth";
-import { login, getUserProfile } from "@/services/authServices"; // Verifica que el archivo sea authServices.js
+import { useRoute, useRouter } from "vue-router";
 import Swal from "sweetalert2";
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import { errorMessage } from "@/api/apiClient";
 
 const auth = useAuthStore();
+const configStore = useConfigStore();
 const router = useRouter();
+const route = useRoute();
 
 const email = ref("");
 const password = ref("");
 const isLoading = ref(false);
+
+/** Solo se aceptan rutas internas ("/app/...") para evitar redirecciones abiertas. */
+const safeRedirect = () => {
+  const target = route.query.redirect;
+  return typeof target === "string" && target.startsWith("/") && !target.startsWith("//") ? target : null;
+};
 
 const handleLogin = async () => {
   if (!email.value || !password.value) {
@@ -199,48 +227,20 @@ const handleLogin = async () => {
   }
 
   isLoading.value = true;
-
   try {
-    // 1. Autenticación contra el Backend
-    // Enviamos el email como 'username' ya que OAuth2 suele usar ese campo
-    const loginResponse = await login({
-      username: email.value.trim(),
-      password: password.value,
-    });
+    const user = await auth.login(email.value, password.value);
 
-    // 2. Guardar el token en localStorage PRIMERO (lo necesita el interceptor)
-    localStorage.setItem('token', loginResponse.access_token);
-    localStorage.setItem('token_type', loginResponse.token_type);
-
-    // 3. Obtener el perfil completo (ahora el interceptor tiene el token)
-    const userData = await getUserProfile();
-
-    // 4. Actualizar el estado en Pinia
-    auth.login(userData, loginResponse.access_token, loginResponse.token_type);
-
-    // 5. Mensaje de éxito
     Swal.fire({
       icon: "success",
-      title: `¡Bienvenido, ${userData.full_name}!`,
+      title: `¡Bienvenido, ${user.full_name}!`,
       text: "Acceso concedido al paraíso.",
       timer: 2000,
       showConfirmButton: false,
     });
 
-    // 6. Redirección inteligente basada en tu index.js
-    // Revisa si tu API devuelve 'rol' o 'role'
-    const userRole = userData.rol || userData.role;
-
-    if (userRole === "admin") {
-      router.push({ name: "admin-dashboard" });
-    } else {
-      router.push({ name: "account-profile" });
-    }
+    router.push(safeRedirect() || auth.homeRoute());
   } catch (error) {
-    console.error("Error en login:", error);
-    const msg =
-      error.response?.data?.detail || "Correo o contraseña incorrectos";
-    Swal.fire("Error de Acceso", msg, "error");
+    Swal.fire("Error de Acceso", errorMessage(error, "Correo o contraseña incorrectos"), "error");
   } finally {
     isLoading.value = false;
   }

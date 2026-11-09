@@ -1,40 +1,36 @@
 <script setup>
-// 1. Importamos el store de configuración
-import { useConfigStore } from '@/stores/config';
+import { computed } from "vue";
+import { useConfigStore } from "@/stores/config";
 
-// 2. Lo inicializamos
 const configStore = useConfigStore();
-
-// 3. Traemos la URL de tu backend para armar la ruta del logo
-// (Asumimos que la env: VITE_BACKEND_URL es http://localhost:8000)
-const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const lugar = computed(() => configStore.data.city || configStore.data.country);
+const direccion = computed(() => [configStore.data.address, configStore.data.city].filter(Boolean).join(", "));
 </script>
 
 <template>
-  <footer class="kofan-footer mt-auto">
+  <footer class="brand-footer mt-auto">
     <div class="container footer-grid">
-      
+
       <div class="footer-brand">
-        <h2 class="footer-logo mb-3">{{ configStore.data.hotel_name || 'Kofán Hospedaje' }}</h2>
+        <h2 class="footer-logo mb-3">{{ configStore.hotelName }}</h2>
         <p>
-          Conectando el espíritu humano con la magia de la Amazonía. Un refugio
-          de paz, cultura y naturaleza.
+          {{ configStore.data.tagline || "Un refugio de paz, cultura y naturaleza." }}
         </p>
-        
+
         <div class="social-links mt-4">
-          <a v-if="configStore.data.social_instagram" :href="configStore.data.social_instagram" target="_blank" class="social-icon">
+          <a v-if="configStore.data.social_instagram" :href="configStore.data.social_instagram" target="_blank" rel="noopener" class="social-icon">
             <font-awesome-icon :icon="['fab', 'instagram']" style="font-size: 1.3rem;" />
           </a>
-          
-          <a v-if="configStore.data.social_facebook" :href="configStore.data.social_facebook" target="_blank" class="social-icon">
+
+          <a v-if="configStore.data.social_facebook" :href="configStore.data.social_facebook" target="_blank" rel="noopener" class="social-icon">
             <font-awesome-icon :icon="['fab', 'facebook']" style="font-size: 1.3rem;" />
           </a>
-          
-          <a v-if="configStore.data.social_tiktok" :href="configStore.data.social_tiktok" target="_blank" class="social-icon">
+
+          <a v-if="configStore.data.social_tiktok" :href="configStore.data.social_tiktok" target="_blank" rel="noopener" class="social-icon">
             <font-awesome-icon :icon="['fab', 'tiktok']" style="font-size: 1.3rem;" />
           </a>
 
-          <a v-if="configStore.data.whatsapp_number" :href="`https://wa.me/${configStore.data.whatsapp_number.replace(/\+/g, '').replace(/ /g, '')}`" target="_blank" class="social-icon whatsapp-icon">
+          <a v-if="configStore.whatsappLink" :href="configStore.whatsappLink" target="_blank" rel="noopener" class="social-icon whatsapp-icon">
             <font-awesome-icon :icon="['fab', 'whatsapp']" style="font-size: 1.4rem;" />
           </a>
         </div>
@@ -54,29 +50,29 @@ const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
       <div class="footer-contact text-center text-md-start">
         <h3 class="mb-4 text-white">Contacto</h3>
-        
-        <p class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
-          <font-awesome-icon :icon="['fas', 'location-dot']" class="me-3 text-white fs-5" /> 
-          <span>{{ configStore.data.address || 'Puerto Asís, Putumayo' }}</span>
+
+        <p v-if="direccion" class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
+          <font-awesome-icon :icon="['fas', 'location-dot']" class="me-3 text-white fs-5" />
+          <span>{{ direccion }}</span>
         </p>
-        <p class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
-          <font-awesome-icon :icon="['fas', 'phone']" class="me-3 text-white fs-5" /> 
-          <span>{{ configStore.data.phone || '+57 322 4225925' }}</span>
+        <p v-if="configStore.data.phone" class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
+          <font-awesome-icon :icon="['fas', 'phone']" class="me-3 text-white fs-5" />
+          <span>{{ configStore.data.phone }}</span>
         </p>
-        <p class="mb-0 d-flex align-items-center justify-content-center justify-content-md-start">
-          <font-awesome-icon :icon="['fas', 'envelope']" class="me-3 text-white fs-5" /> 
-          <span>{{ configStore.data.contact_email || 'kofancentroecoturistico@gmail.com' }}</span>
+        <p v-if="configStore.data.contact_email" class="mb-0 d-flex align-items-center justify-content-center justify-content-md-start">
+          <font-awesome-icon :icon="['fas', 'envelope']" class="me-3 text-white fs-5" />
+          <span>{{ configStore.data.contact_email }}</span>
         </p>
       </div>
-      
+
     </div>
 
     <div class="footer-bottom mt-5">
       <div class="container">
         <hr class="footer-line" />
         <div class="bottom-flex">
-          <p class="mb-0">&copy; {{ new Date().getFullYear() }} {{ configStore.data.hotel_name || 'Kofán Amazonía' }}. Todos los derechos reservados.</p>
-          <p class="mb-0">Hecho con ❤️ en el Putumayo</p>
+          <p class="mb-0">&copy; {{ new Date().getFullYear() }} {{ configStore.hotelName }}. Todos los derechos reservados.</p>
+          <p v-if="lugar" class="mb-0">Hecho con ❤️ en {{ lugar }}</p>
         </div>
       </div>
     </div>
@@ -84,26 +80,20 @@ const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 </template>
 
 <style scoped>
-.footer-img-logo {
-  max-height: 80px;
-  object-fit: contain;
-  margin-bottom: 20px;
-}
-
-.kofan-footer {
+.brand-footer {
   background-color: var(--k-forest) !important;
   color: rgba(255, 252, 248, 0.88);
   padding: 80px 20px 20px 20px;
 }
 
-.kofan-footer,
-.kofan-footer p,
-.kofan-footer span,
-.kofan-footer a {
+.brand-footer,
+.brand-footer p,
+.brand-footer span,
+.brand-footer a {
   color: rgba(255, 252, 248, 0.88);
 }
 
-.kofan-footer .text-white {
+.brand-footer .text-white {
   color: var(--k-cream) !important;
 }
 

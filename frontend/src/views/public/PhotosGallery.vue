@@ -5,7 +5,7 @@
     <section class="galeria-hero text-center text-white">
       <div class="container">
         <h1 class="titulo-galeria">Fragmentos de la Selva</h1>
-        <p class="lead">Capturando la magia, el color y la vida del Ecohotel Kofán.</p>
+        <p class="lead">Capturando la magia, el color y la vida de {{ configStore.hotelName }}.</p>
       </div>
       <div class="custom-shape-divider-bottom">
         <svg viewBox="0 0 1000 100" preserveAspectRatio="none">
@@ -55,8 +55,8 @@
               @click="abrirLightbox(foto)"
             >
               <img 
-                :src="fotoUrl(foto.url)" 
-                alt="Momento Kofán" 
+                :src="assetUrl(foto.url)"
+                :alt="foto.title || `Momento ${configStore.hotelName}`"
                 class="img-fluid rounded-4 shadow-sm" 
                 loading="lazy"
                 @error="$event.target.style.display='none'"
@@ -79,8 +79,8 @@
         </button>
         <div class="lightbox-content">
           <img 
-            :src="fotoUrl(lightbox.foto.url)" 
-            alt="Momento Kofán" 
+            :src="assetUrl(lightbox.foto.url)"
+            :alt="lightbox.foto.title || `Momento ${configStore.hotelName}`"
             class="lightbox-img" 
           />
           </div>
@@ -94,7 +94,7 @@
     <section class="galeria-cta py-5 bg-light text-center">
       <div class="container">
         <h3>¿Quieres vivirlo en persona?</h3>
-        <button class="btn btn-success btn-lg rounded-pill mt-3" @click="$router.push({ name: 'contact' })">
+        <button class="btn btn-success btn-lg rounded-pill mt-3" @click="$router.push({ name: 'hospedaje-home' })">
           Planea tu visita
         </button>
       </div>
@@ -105,7 +105,11 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from "vue";
-import apiClient from "@/api/apiClient";
+import { listGallery } from "@/api/content";
+import { assetUrl } from "@/config/env";
+import { useConfigStore } from "@/stores/config";
+
+const configStore = useConfigStore();
 
 const fotos = ref([]);
 const isLoading = ref(false);
@@ -121,15 +125,10 @@ const categorias = [
 
 const lightbox = reactive({ abierto: false, foto: null, index: 0 });
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const fotoUrl = (url) => `${BASE_URL}${url}`;
-
 const cargarFotos = async (categoria = "todos") => {
   isLoading.value = true;
   try {
-    const params = categoria !== "todos" ? `?categoria=${categoria}` : "";
-    const { data } = await apiClient.get(`/gallery/${params}`);
-    fotos.value = data;
+    fotos.value = await listGallery(categoria === "todos" ? null : categoria);
   } catch {
     fotos.value = [];
   } finally {

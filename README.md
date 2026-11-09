@@ -1,56 +1,70 @@
-# 🌿 Kofán - Experiencia Amazónica 🍃
+# Hotel Kawari
 
-> **"Donde la selva y el espíritu se encuentran."**
-> Una plataforma web moderna diseñada para conectar a los viajeros con la esencia ancestral de la comunidad Kofán en el Putumayo, Colombia.
+Sistema de reservas del hotel: sitio público, área del huésped y panel del personal (administración y recepción).
 
----
+| Capa | Tecnología |
+|---|---|
+| API | Python 3.12 · FastAPI · PyMongo Async · Pydantic v2 · PyJWT · Argon2 (pwdlib) |
+| Base de datos | MongoDB (Atlas en producción) |
+| Frontend | Vue 3 · Vite · Pinia · Bootstrap 5 |
+| Dependencias | `uv` (Python, `pyproject.toml` + `uv.lock`) · `npm` (frontend) |
 
-## ✨ El Proyecto
+- Arquitectura y backlog: [CLAUDE.md](CLAUDE.md)
+- Contrato de la API: [docs/API_V1.md](docs/API_V1.md)
+- Nivel de acceso por endpoint: [docs/ENDPOINTS_ACCESO.md](docs/ENDPOINTS_ACCESO.md)
 
-Kofán no es solo un sitio web, es una ventana a la biodiversidad y cultura del Putumayo. El proyecto incluye:
+## Arranque rápido (desarrollo)
 
-- **Home Dinámico:** Bienvenida con animaciones fluidas y diseño orgánico.
-- **Experiencias Auténticas:** Catálogo de senderismo, cultura viva y descanso pleno.
-- **Hospedaje Ancestral:** Sistema de tarjetas interactivas con detalles de tarifas y servicios.
-- **Información de Viaje:** Sección legal, políticas de reserva y consejos útiles.
-- **Ubicación Real:** Integración con mapas y guías de acceso desde Puerto Asís.
-
----
-
-## 🛠️ Tecnologías Utilizadas (Tech Stack)
-
-- **Framework:** [Vue 3](https://vuejs.org/) (Composition API)
-- **Build Tool:** [Vite](https://vitejs.dev/)
-- **Estilos:** [Bootstrap 5](https://getbootstrap.com/) + CSS3 Custom Shapes (Dividers orgánicos)
-- **Iconografía:** [FontAwesome](https://fontawesome.com/) (Solid & Brands)
-- **Fuentes:** Google Fonts (_Handlee_ para títulos y _Poppins_ para cuerpo de texto)
-
----
-
-## 🚀 Configuración del Proyecto (Setup)
-
-### Recomendaciones de IDE
-
-- **VS Code** + Extensión **Vue - Official** (anteriormente Volar).
-- Desactivar la extensión **Vetur** para evitar conflictos.
-
-### Instalación
+Requisitos: Python 3.12, [uv](https://docs.astral.sh/uv/) (`pip install uv`), Node 20.19+ y MongoDB (local o Atlas).
 
 ```sh
-# 1. Instalar dependencias base
+# 1. Backend
+cp backend/.env.example backend/.env        # completa MONGO_URI y SECRET_KEY
+uv sync                                     # crea .venv con dependencias exactas (uv.lock)
+uv run python -m backend.scripts.seed --demo-rooms   # índices, ajustes, tipos de habitación y admin
+uv run uvicorn backend.app.main:app --reload         # http://127.0.0.1:8000/docs
+
+# 2. Frontend (otra terminal)
+cd frontend
 npm install
-
-# 2. Instalar paquetes de iconos necesarios (FontAwesome)
-npm install @fortawesome/fontawesome-svg-core @fortawesome/free-solid-svg-icons @fortawesome/free-brands-svg-icons @fortawesome/vue-fontawesome@latest
+npm run dev                                 # http://localhost:5173 (proxy de /api y /static al backend)
 ```
-# Iniciar servidor de desarrollo (Hot-Reload)
-npm run dev
 
-# Compilar y minificar para producción
-npm run build
+El seed crea el administrador definido en `SEED_ADMIN_EMAIL`; si no defines `SEED_ADMIN_PASSWORD`,
+imprime una contraseña aleatoria una sola vez.
 
-src/
- ├── components/      # Componentes independientes (Navbar, Footer, etc.)
- ├── styles/          # CSS global y variables de color (#1a5c43, #0f3b2a)
- ├── App.vue          # Componente raíz con el layout principal
- └── main.js          # Configuración de FontAwesome y registro de componentes
+En desarrollo los correos (verificación, recuperación de contraseña) se muestran en el log del backend
+(`EMAIL_BACKEND=console`). Para enviarlos de verdad configura `EMAIL_BACKEND=smtp` y las variables `SMTP_*`.
+
+## Pruebas
+
+```sh
+uv run pytest                 # backend: levanta un mongod temporal (o usa MONGO_TEST_URI)
+uv run pytest --cov=backend/app
+```
+
+Las pruebas del backend usan un MongoDB real: buscan `mongod` en el PATH, en `MONGOD_PATH` o en
+`C:\Program Files\MongoDB\Server\*\bin`. También puedes apuntar a un servidor existente con `MONGO_TEST_URI`.
+
+## Estructura
+
+```
+backend/app/
+├── core/        settings, seguridad, errores de dominio, permisos (RBAC), fechas
+├── db/          cliente PyMongo Async, índices y validación $jsonSchema
+├── api/v1/      routers HTTP (solo transporte)
+├── modules/     auth, users, rooms, bookings, folios, cms, media, notifications, dashboard, audit
+└── workers/     tareas programadas (vencimiento de pagos)
+backend/scripts/ seed idempotente
+backend/tests/   pruebas contra MongoDB real
+frontend/src/
+├── api/         una función por endpoint (única puerta al backend)
+├── config/      variables de entorno y assetUrl()
+├── stores/      auth (sesión en memoria + cookie HttpOnly), config del sitio, reserva
+└── views/       público, auth, área del cliente, panel del personal
+```
+
+## Flujo de pago
+
+No hay pasarela de pago: el huésped transfiere el anticipo (datos en *Configuración → Instrucciones de pago*),
+sube el comprobante al reservar y el personal lo verifica en *Reservas → Por verificar*.

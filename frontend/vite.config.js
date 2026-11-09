@@ -6,12 +6,11 @@ export default defineConfig({
   plugins: [vue()],
   // CONFIGURACIÓN DEL PROXY (EL PUENTE)
   server: {
+    // En desarrollo el frontend y la API comparten origen: así la cookie de sesión
+    // (HttpOnly, SameSite=Lax) funciona igual que en producción detrás de un mismo dominio.
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000', // El puerto de tu FastAPI
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
+      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/static': { target: 'http://127.0.0.1:8000', changeOrigin: true },
     }
   },
   resolve: {

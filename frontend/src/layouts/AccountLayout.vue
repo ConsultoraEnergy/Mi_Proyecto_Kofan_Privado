@@ -2,22 +2,19 @@
 import SidebarAccount from "@/views/app/SidebarView.vue";
 </script>
 
-
 <template>
   <div class="account-bg">
     <div class="container account-container">
       <div class="row g-4">
-        
         <div class="col-lg-3 col-md-4">
           <SidebarAccount />
         </div>
-        
+
         <div class="col-lg-9 col-md-8">
           <div class="content-wrapper shadow-sm">
-            <router-view></router-view> 
+            <router-view></router-view>
           </div>
         </div>
-
       </div>
     </div>
   </div>

@@ -1,5 +1,7 @@
+/** Galería pública: [{ id, url, title, category, created_at }]. Las URL se muestran con assetUrl(). */
 import { defineStore } from "pinia";
-import apiClient from "@/api/apiClient";
+import { errorMessage } from "@/api/apiClient";
+import { listGallery, uploadGalleryImage, deleteGalleryImage } from "@/api/content";
 
 export const useGalleryStore = defineStore("gallery", {
   state: () => ({
@@ -8,50 +10,36 @@ export const useGalleryStore = defineStore("gallery", {
     error: null,
   }),
   actions: {
-    // 1. Obtener todas las imágenes
-    async fetchImages() {
+    async fetchImages(category = null) {
       this.isLoading = true;
+      this.error = null;
       try {
-        const response = await apiClient.get("/gallery/");
-        this.images = response.data;
+        this.images = await listGallery(category);
       } catch (error) {
-        this.error = "Error al cargar la galería.";
-        console.error(error);
+        this.error = errorMessage(error, "Error al cargar la galería.");
       } finally {
         this.isLoading = false;
       }
     },
 
-    // 2. Subir nueva imagen
-    async uploadImage(file) {
-      const formData = new FormData();
-      formData.append("file", file);
-
+    /** category: slug en minúscula (p. ej. "instalaciones"). */
+    async uploadImage(file, category = "general", title = "") {
       try {
-        const response = await apiClient.post("/gallery/", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        // Agregamos la nueva imagen al principio de la lista
-        this.images.unshift(response.data); 
+        const image = await uploadGalleryImage(file, category, title);
+        this.images.unshift(image);
         return { success: true };
       } catch (error) {
-        console.error("Error al subir:", error);
-        return { success: false, error: error.response?.data?.detail || "Error al subir" };
+        return { success: false, error: errorMessage(error, "Error al subir") };
       }
     },
 
-    // 3. Eliminar imagen
     async deleteImage(imageId) {
       try {
-        await apiClient.delete(`/gallery/${imageId}`);
-        // Filtramos la imagen eliminada para que desaparezca de la pantalla al instante
+        await deleteGalleryImage(imageId);
         this.images = this.images.filter((img) => img.id !== imageId);
         return { success: true };
       } catch (error) {
-        console.error("Error al eliminar:", error);
-        return { success: false };
+        return { success: false, error: errorMessage(error, "Error al eliminar") };
       }
     },
   },

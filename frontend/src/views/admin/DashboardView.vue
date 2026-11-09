@@ -1,68 +1,68 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import apiClient from "@/api/apiClient";
-import RoomHistoryCard from '@/components/RoomHistoryCard.vue'; 
-import ActivityNotificationsModal from '@/components/ActivityNotificationsModal.vue';
+import { getDashboard } from "@/api/operations";
+import { errorMessage } from "@/api/apiClient";
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import { BOOKING_STATUS_META, PERMISSIONS } from "@/constants/booking";
+import { formatMoney, formatDateTime } from "@/utils/format";
+import RoomHistoryCard from "@/components/RoomHistoryCard.vue";
+import ActivityNotificationsModal from "@/components/ActivityNotificationsModal.vue";
 
-// Variables reactivas
+const auth = useAuthStore();
+const configStore = useConfigStore();
+
 const stats = ref({
-  ingresosMes: 0,
-  reservasActivas: 0,
-  huespedesHoy: 0,
-  ocupacionPorcentaje: 0,
+  month_revenue: 0,
+  confirmed_bookings: 0,
+  pending_verification: 0,
+  in_house_guests: 0,
+  arrivals_today: 0,
+  departures_today: 0,
+  occupancy_percent: 0,
+  occupied_rooms: 0,
+  sellable_rooms: 0,
 });
 
-const modalAvisosVisible = ref(false); // Controla el nuevo NotificationModal
+const modalAvisosVisible = ref(false);
 const habitacionesPopulares = ref([]);
 const ultimosMovimientos = ref([]);
+const loadError = ref("");
 
-// Función para cargar los datos del dashboard
 const cargarDashboard = async () => {
+  loadError.value = "";
   try {
-    const response = await apiClient.get('/dashboard'); 
-    
-    // Validaciones de seguridad con optional chaining
-    stats.value = response.data?.stats || { ingresosMes: 0, reservasActivas: 0, huespedesHoy: 0, ocupacionPorcentaje: 0 };
-    habitacionesPopulares.value = response.data?.habitacionesPopulares || [];
-    ultimosMovimientos.value = response.data?.ultimosMovimientos || [];
-    
+    const data = await getDashboard();
+    stats.value = { ...stats.value, ...(data?.stats || {}) };
+    habitacionesPopulares.value = data?.popular_rooms || [];
+    ultimosMovimientos.value = data?.recent_activity || [];
   } catch (error) {
-    console.error("Error trayendo los datos del dashboard:", error);
+    loadError.value = errorMessage(error, "No se pudieron cargar los indicadores del panel.");
   }
 };
 
-const normalizarAccion = (accion = "") => String(accion).toLowerCase();
-
-const checkInsHoy = computed(
-  () =>
-    ultimosMovimientos.value.filter((item) =>
-      /check-in|check in|llegada|ingreso/.test(normalizarAccion(item.accion)),
-    ).length,
+const maxReservasPopulares = computed(() =>
+  Math.max(1, ...habitacionesPopulares.value.map((hab) => hab.bookings || 0)),
 );
 
-const checkOutsHoy = computed(
-  () =>
-    ultimosMovimientos.value.filter((item) =>
-      /check-out|check out|salida/.test(normalizarAccion(item.accion)),
-    ).length,
-);
+const statusMeta = (status) => BOOKING_STATUS_META[status] || { label: status, badge: "bg-secondary" };
 
 const prioridades = computed(() => [
   {
-    label: "Check-ins hoy",
-    value: checkInsHoy.value,
+    label: "Llegadas hoy",
+    value: stats.value.arrivals_today,
     icon: "fa-solid fa-door-open",
     tone: "sky",
   },
   {
-    label: "Check-outs hoy",
-    value: checkOutsHoy.value,
+    label: "Salidas hoy",
+    value: stats.value.departures_today,
     icon: "fa-solid fa-key",
     tone: "apple",
   },
   {
-    label: "Reservas activas",
-    value: stats.value.reservasActivas,
+    label: "Reservas confirmadas",
+    value: stats.value.confirmed_bookings,
     icon: "fa-solid fa-calendar-check",
     tone: "sand",
   },
@@ -75,30 +75,60 @@ onMounted(() => {
 
 <template>
   <div class="admin-dashboard">
+    <div v-if="loadError" class="alert alert-danger small">{{ loadError }}</div>
+
     <section class="eco-card priorities-section p-4 mb-4">
       <div
         class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3"
       >
         <div>
-          <p class="brand-handmade mb-1">Bienvenida a Kofán</p>
+          <p class="brand-handmade mb-1">Bienvenida a {{ configStore.hotelName }}</p>
           <h2 class="section-title h3 mb-2">Prioridades del Día</h2>
           <p class="text-muted mb-0">
-            Revisa primero las llegadas, salidas y el nivel de ocupación para
-            mantener una experiencia tranquila.
+            Revisa primero los pagos por verificar, las llegadas, las salidas y el
+            nivel de ocupación para mantener una experiencia tranquila.
           </p>
         </div>
 
         <div class="d-flex flex-wrap gap-2">
-          <router-link :to="{ name: 'admin-bookings' }" class="btn btn-kofan">
+          <router-link
+            v-if="auth.can(PERMISSIONS.BOOKINGS_READ_ALL)"
+            :to="{ name: 'admin-bookings' }"
+            class="btn btn-brand"
+          >
             <font-awesome-icon icon="fa-solid fa-calendar-day" class="me-2" />
             Reservas de hoy
           </router-link>
-          <router-link :to="{ name: 'admin-rooms' }" class="btn btn-soft-sky">
+          <router-link
+            v-if="auth.can(PERMISSIONS.ROOMS_READ_ALL)"
+            :to="{ name: 'admin-rooms' }"
+            class="btn btn-soft-sky"
+          >
             <font-awesome-icon icon="fa-solid fa-bed" class="me-2" /> Estado de
             habitaciones
           </router-link>
         </div>
       </div>
+
+      <component
+        :is="auth.can(PERMISSIONS.BOOKINGS_READ_ALL) ? 'router-link' : 'div'"
+        :to="{ name: 'admin-bookings', query: { tab: 'pending_verification' } }"
+        class="verify-banner d-flex align-items-center gap-3 mt-3 text-decoration-none"
+        :class="{ 'has-pending': stats.pending_verification > 0 }"
+      >
+        <div class="priority-icon">
+          <font-awesome-icon icon="fa-solid fa-receipt" />
+        </div>
+        <div class="flex-grow-1">
+          <p class="small text-uppercase mb-0 fw-bold">Pagos por verificar</p>
+          <small class="text-muted">
+            {{ stats.pending_verification > 0
+              ? "Hay comprobantes de anticipo esperando revisión."
+              : "No hay comprobantes pendientes de revisión." }}
+          </small>
+        </div>
+        <h3 class="mb-0 fw-bold text-brand">{{ stats.pending_verification }}</h3>
+      </component>
 
       <div class="row g-3 mt-1">
         <div
@@ -114,7 +144,7 @@ onMounted(() => {
               <p class="small text-uppercase mb-1 text-muted">
                 {{ item.label }}
               </p>
-              <h4 class="mb-0 fw-bold text-kofan">{{ item.value }}</h4>
+              <h4 class="mb-0 fw-bold text-brand">{{ item.value }}</h4>
             </div>
           </div>
         </div>
@@ -129,20 +159,15 @@ onMounted(() => {
               <p class="text-muted small fw-bold mb-1 text-uppercase">
                 Ingresos del Mes
               </p>
-              <h3 class="fw-bold mb-0 text-kofan">
-                ${{ stats.ingresosMes?.toLocaleString() || 0 }}
+              <h3 class="fw-bold mb-0 text-brand">
+                {{ formatMoney(stats.month_revenue, configStore.data.currency) }}
               </h3>
             </div>
             <div class="icon-circle icon-leaf">
               <font-awesome-icon icon="fa-solid fa-hand-holding-dollar" />
             </div>
           </div>
-          <div class="mt-3 small">
-            <span class="trend-up fw-bold">
-              <font-awesome-icon icon="fa-solid fa-arrow-up" /> 12%
-            </span>
-            <span class="text-muted ms-2">vs mes anterior</span>
-          </div>
+          <div class="mt-3 small text-muted">Mes en curso</div>
         </div>
       </div>
 
@@ -153,7 +178,7 @@ onMounted(() => {
               <p class="text-muted small fw-bold mb-1 text-uppercase">
                 Huéspedes Hoy
               </p>
-              <h3 class="fw-bold mb-0 text-kofan">{{ stats.huespedesHoy }}</h3>
+              <h3 class="fw-bold mb-0 text-brand">{{ stats.in_house_guests }}</h3>
             </div>
             <div class="icon-circle icon-sand">
               <font-awesome-icon icon="fa-solid fa-users" />
@@ -170,8 +195,8 @@ onMounted(() => {
               <p class="text-muted small fw-bold mb-1 text-uppercase">
                 Ocupación
               </p>
-              <h3 class="fw-bold mb-0 text-kofan">
-                {{ stats.ocupacionPorcentaje }}%
+              <h3 class="fw-bold mb-0 text-brand">
+                {{ stats.occupancy_percent }}%
               </h3>
             </div>
             <div class="icon-circle icon-soft">
@@ -180,9 +205,12 @@ onMounted(() => {
           </div>
           <div class="progress mt-3" style="height: 7px">
             <div
-              class="progress-bar progress-kofan"
-              :style="{ width: stats.ocupacionPorcentaje + '%' }"
+              class="progress-bar progress-brand"
+              :style="{ width: Math.min(stats.occupancy_percent, 100) + '%' }"
             ></div>
+          </div>
+          <div class="mt-2 small text-muted">
+            {{ stats.occupied_rooms }} de {{ stats.sellable_rooms }} habitaciones ocupadas
           </div>
         </div>
       </div>
@@ -194,20 +222,24 @@ onMounted(() => {
           <p class="brand-handmade small mb-1">Preferencias de los huéspedes</p>
           <h5 class="section-title mb-4">Habitaciones más solicitadas</h5>
 
+          <p v-if="!habitacionesPopulares.length" class="text-muted small mb-0">
+            Aún no hay reservas suficientes para mostrar tendencias.
+          </p>
+
           <div
             v-for="(hab, index) in habitacionesPopulares"
-            :key="hab.nombre"
+            :key="hab.room_id"
             class="mb-4"
           >
             <div class="d-flex justify-content-between mb-1">
-              <span class="fw-bold text-kofan">{{ hab.nombre }}</span>
-              <span class="text-muted small">{{ hab.reservas }} reservas</span>
+              <span class="fw-bold text-brand">{{ hab.name }}</span>
+              <span class="text-muted small">{{ hab.bookings }} reservas</span>
             </div>
             <div class="progress" style="height: 10px">
               <div
-                class="progress-bar progress-kofan"
+                class="progress-bar progress-brand"
                 :class="index % 2 === 0 ? 'tone-sky-bar' : 'tone-apple-bar'"
-                :style="{ width: Math.min(hab.reservas * 2, 100) + '%' }"
+                :style="{ width: Math.round((hab.bookings / maxReservasPopulares) * 100) + '%' }"
               ></div>
             </div>
           </div>
@@ -217,26 +249,31 @@ onMounted(() => {
       <div class="col-12 col-lg-4">
         <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
           <h5 class="fw-bold mb-4">Actividad de Reservas</h5>
-          
-          <div v-for="item in (ultimosMovimientos || []).slice(0, 3)" :key="item.id" 
+
+          <p v-if="!ultimosMovimientos.length" class="text-muted small">Sin movimientos recientes.</p>
+
+          <div v-for="item in ultimosMovimientos.slice(0, 3)" :key="`${item.booking_id}-${item.at}`"
                class="d-flex mb-3 align-items-center p-3 bg-white border shadow-sm rounded-3 notification-item">
-            <div class="activity-dot flex-shrink-0 me-3" :class="item.accion === 'Cancelación' ? 'bg-danger' : 'bg-success'"></div>
+            <div class="activity-dot flex-shrink-0 me-3" :class="item.status === 'cancelled' ? 'bg-danger' : 'bg-success'"></div>
             <div class="flex-grow-1 min-w-0">
-              <h6 class="mb-0 fw-bold small text-truncate">{{ item.usuario }}</h6>
-              <p class="mb-0 text-muted extra-small text-truncate">{{ item.accion }} - {{ item.fecha }}</p>
+              <h6 class="mb-0 fw-bold small text-truncate">{{ item.guest_name }}</h6>
+              <p class="mb-0 text-muted extra-small text-truncate">
+                <span class="badge me-1" :class="statusMeta(item.status).badge">{{ statusMeta(item.status).label }}</span>
+                {{ item.room_name }} · {{ formatDateTime(item.at) }}
+              </p>
             </div>
-            <div class="fw-bold small text-nowrap ms-2">{{ item.monto.replace(/\.0$/, '') }}</div>
+            <div class="fw-bold small text-nowrap ms-2">{{ formatMoney(item.total_amount, configStore.data.currency) }}</div>
           </div>
 
           <button @click="modalAvisosVisible = true" class="btn btn-light btn-sm w-100 mt-2 fw-bold text-muted rounded-3">
-            Ver todas las reservas y avisos
+            Ver mis avisos
           </button>
         </div>
 
-        <RoomHistoryCard />
+        <RoomHistoryCard v-if="auth.can(PERMISSIONS.AUDIT_READ)" />
       </div>
     </div>
-    
+
     <ActivityNotificationsModal :show="modalAvisosVisible" @close="modalAvisosVisible = false" />
 
   </div>
@@ -254,7 +291,7 @@ onMounted(() => {
   border-radius: 20px;
 }
 
-.btn-kofan:hover {
+.btn-brand:hover {
   filter: brightness(1.03);
 }
 
@@ -334,7 +371,7 @@ onMounted(() => {
   border-radius: 999px;
 }
 
-.progress-kofan {
+.progress-brand {
   background: linear-gradient(90deg, var(--k-forest), var(--k-apple));
 }
 
@@ -344,6 +381,30 @@ onMounted(() => {
 
 .tone-apple-bar {
   background: linear-gradient(90deg, var(--k-apple), var(--k-apple-light));
+}
+
+.verify-banner {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--k-border);
+  background: rgba(255, 255, 255, 0.78);
+  color: inherit;
+}
+
+.verify-banner .priority-icon {
+  background: var(--k-sky-soft);
+  color: var(--k-sky);
+}
+
+.verify-banner.has-pending {
+  border-color: var(--k-sand);
+  background: var(--k-sand-soft);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.06);
+}
+
+.verify-banner.has-pending .priority-icon {
+  background: var(--k-sand);
+  color: var(--k-offwhite);
 }
 
 .activity-dot {

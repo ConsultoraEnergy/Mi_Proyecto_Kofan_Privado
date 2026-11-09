@@ -1,27 +1,36 @@
 <script setup>
-import { ref, watch } from 'vue';
-import apiClient from '@/api/apiClient';
+import { ref, watch } from "vue";
+import { listNotifications, markAllNotificationsRead } from "@/api/operations";
+import { errorMessage } from "@/api/apiClient";
+import { formatDateTime } from "@/utils/format";
 
 const props = defineProps({
-  show: Boolean
+  show: Boolean,
 });
 
-const emit = defineEmits(['close']);
+defineEmits(["close"]);
+
+// El backend envía clases de Bootstrap Icons; aquí se usa el ícono FontAwesome equivalente según el tema.
+const THEME_ICONS = {
+  success: "fa-solid fa-circle-check",
+  warning: "fa-solid fa-clock",
+  danger: "fa-solid fa-ban",
+  info: "fa-solid fa-circle-info",
+  secondary: "fa-solid fa-check",
+  primary: "fa-solid fa-bell",
+};
 
 const logs = ref([]);
 const isLoading = ref(false);
+const loadError = ref("");
 
 const fetchNotifications = async () => {
   isLoading.value = true;
+  loadError.value = "";
   try {
-    const response = await apiClient.get('/api/notificaciones/mis-avisos');
-    
-    // 🟢 ESTE CONSOLE.LOG ES LA CLAVE PARA SABER QUÉ LLEGA
-    console.log("Respuesta del backend (Avisos):", response.data); 
-    
-    logs.value = response.data || [];
+    logs.value = (await listNotifications()) || [];
   } catch (error) {
-    console.error("Error cargando mis avisos:", error);
+    loadError.value = errorMessage(error, "No se pudieron cargar tus avisos.");
     logs.value = [];
   } finally {
     isLoading.value = false;
@@ -30,20 +39,19 @@ const fetchNotifications = async () => {
 
 const marcarTodasComoLeidas = async () => {
   try {
-    await apiClient.patch('/api/notificaciones/read-all');
-    // Actualizamos la vista para que ya no salgan resaltadas
-    logs.value.forEach(log => log.leida = true);
+    await markAllNotificationsRead();
+    logs.value.forEach((log) => (log.read = true));
   } catch (error) {
-    console.error("Error al marcar como leídas:", error);
+    loadError.value = errorMessage(error, "No se pudieron marcar los avisos como leídos.");
   }
 };
 
-// Escucha cuando el modal se abre para cargar los datos
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    fetchNotifications();
-  }
-});
+watch(
+  () => props.show,
+  (visible) => {
+    if (visible) fetchNotifications();
+  },
+);
 </script>
 
 <template>
@@ -51,10 +59,10 @@ watch(() => props.show, (newVal) => {
   <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="show" @click.self="$emit('close')">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
-        
+
         <div class="modal-header text-white border-0">
           <h5 class="modal-title fw-bold">
-            <font-awesome-icon :icon="['fas', 'bell']" class="me-2 text-warning" /> Historial de Actividad y Avisos
+            <font-awesome-icon icon="fa-solid fa-bell" class="me-2 text-warning" /> Historial de Actividad y Avisos
           </h5>
           <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
         </div>
@@ -65,29 +73,31 @@ watch(() => props.show, (newVal) => {
             <p class="text-muted mt-2 small">Cargando tus notificaciones...</p>
           </div>
 
+          <div v-else-if="loadError" class="alert alert-danger m-3 small">{{ loadError }}</div>
+
           <div v-else-if="logs.length === 0" class="text-center py-5 text-muted">
-            <i class="bi bi-inbox display-4 d-block mb-3 text-light"></i>
+            <font-awesome-icon icon="fa-solid fa-bell-slash" class="display-4 d-block mx-auto mb-3 text-secondary" />
             No tienes avisos recientes.
           </div>
 
           <div v-else class="list-group list-group-flush">
-            <div v-for="log in logs" :key="log.id" 
+            <div v-for="log in logs" :key="log.id"
                  class="list-group-item list-group-item-action p-3 border-bottom"
-                 :class="{'bg-white': log.leida, 'bg-primary-subtle': !log.leida}">
+                 :class="{'bg-white': log.read, 'bg-primary-subtle': !log.read}">
               <div class="d-flex align-items-start gap-3">
-                
-                <div class="icon-circle shadow-sm flex-shrink-0" :class="`bg-${log.colorTheme}`">
-                  <i class="bi text-white" :class="log.icono"></i>
+
+                <div class="icon-circle shadow-sm flex-shrink-0" :class="`bg-${log.theme || 'primary'}`">
+                  <font-awesome-icon :icon="THEME_ICONS[log.theme] || THEME_ICONS.primary" class="text-white" />
                 </div>
 
                 <div class="flex-grow-1 min-w-0">
                   <div class="d-flex justify-content-between align-items-center mb-1">
-                    <h6 class="mb-0 fw-bold text-truncate pe-3" :class="{'text-dark': log.leida, 'text-primary': !log.leida}">
-                      {{ log.titulo }}
+                    <h6 class="mb-0 fw-bold text-truncate pe-3" :class="{'text-dark': log.read, 'text-primary': !log.read}">
+                      {{ log.title }}
                     </h6>
-                    <small class="text-muted text-nowrap" style="font-size: 0.75rem;">{{ log.fecha }}</small>
+                    <small class="text-muted text-nowrap" style="font-size: 0.75rem;">{{ formatDateTime(log.created_at) }}</small>
                   </div>
-                  <p class="mb-0 text-muted small" style="white-space: pre-line;">{{ log.mensaje }}</p>
+                  <p class="mb-0 text-muted small" style="white-space: pre-line;">{{ log.message }}</p>
                 </div>
 
               </div>
@@ -97,10 +107,10 @@ watch(() => props.show, (newVal) => {
 
         <div class="modal-footer bg-white border-top-0 d-flex justify-content-between align-items-center p-3">
           <span class="text-muted small">Últimos {{ logs.length }} avisos registrados</span>
-          
+
           <div class="d-flex gap-2">
-            <button @click="marcarTodasComoLeidas" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-              <i class="bi bi-check2-all me-1"></i> Marcar todas leídas
+            <button @click="marcarTodasComoLeidas" class="btn btn-sm btn-outline-secondary rounded-pill px-3" :disabled="!logs.length">
+              <font-awesome-icon icon="fa-solid fa-check" class="me-1" /> Marcar todas leídas
             </button>
             <button @click="$emit('close')" class="btn btn-sm btn-dark rounded-pill px-4 shadow-sm">
               Cerrar
@@ -121,8 +131,8 @@ watch(() => props.show, (newVal) => {
 .modal { display: block; z-index: 1055; }
 
 .icon-circle {
-  width: 10px;
-  height: 10px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;

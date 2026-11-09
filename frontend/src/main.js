@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import router from "./router";
+import { useAuthStore, wireAuthToApiClient } from "./stores/auth";
 
 // --- ESTILOS ---
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -100,6 +101,7 @@ import {
   faUserPlus,
   faUserShield,
   faUsers,
+  faUserGroup,
   faWifi,
   faXmark,
 } from "@fortawesome/free-solid-svg-icons";
@@ -205,6 +207,7 @@ library.add(
   faUserPlus,
   faUserShield,
   faUsers,
+  faUserGroup,
   faWifi,
   faXmark,
   faFacebook,
@@ -218,6 +221,7 @@ library.add(
 const app = createApp(App);
 
 app.use(createPinia());
+wireAuthToApiClient(useAuthStore(), router);
 app.use(router);
 
 // Registrar el componente globalmente

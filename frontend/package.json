@@ -1,12 +1,14 @@
 {
-  "name": "vue-project",
-  "version": "0.0.0",
+  "name": "hotel-kawari-web",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.2.0",
@@ -18,8 +20,6 @@
     "axios": "^1.13.5",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
-    "from": "^0.1.7",
-    "git": "^0.1.5",
     "html2pdf.js": "^0.14.0",
     "pinia": "^3.0.4",
     "sweetalert2": "^11.26.21",

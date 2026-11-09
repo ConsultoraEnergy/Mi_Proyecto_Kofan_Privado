@@ -9,14 +9,13 @@ const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 const configStore = useConfigStore();
-const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 const isScrolled = ref(false);
 const handleScroll = () => { isScrolled.value = window.scrollY > 50; };
 
 let bsCollapse = null;
 onMounted(() => {
   window.addEventListener("scroll", handleScroll);
-  const menuElement = document.getElementById("navbarKofan");
+  const menuElement = document.getElementById("navbarBrand");
   if (menuElement) bsCollapse = new Collapse(menuElement, { toggle: false });
 });
 
@@ -24,9 +23,9 @@ onUnmounted(() => { window.removeEventListener("scroll", handleScroll); });
 
 watch(() => route.path, () => { if (bsCollapse) bsCollapse.hide(); });
 
-const logout = () => {
-  auth.logout();
-  router.push({ name: 'landing-portal' });
+const logout = async () => {
+  await auth.logout();
+  router.push({ name: 'hospedaje-home' });
 };
 
 const isAuthRoute = computed(() => {
@@ -62,27 +61,27 @@ const navbarClasses = computed(() => {
   >
     <div class="container-fluid px-lg-5">
       <router-link :to="{ name: 'hospedaje-home' }" class="navbar-brand d-flex align-items-center">
-      <img 
-        v-if="configStore.data.logo_url" 
-        :src="`${base}${configStore.data.logo_url}`" 
-        alt="Logo Kofán" 
+      <img
+        v-if="configStore.logoUrl"
+        :src="configStore.logoUrl"
+        :alt="`Logo ${configStore.hotelName}`"
         style="max-height: 50px; object-fit: contain;"
       />
       <span v-else class="brand-name fw-bold fs-4 ms-2 handlee-font">
-        {{ configStore.data.hotel_name || 'Kofán' }}
+        {{ configStore.hotelName }}
       </span>
       </router-link>
 
-      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarKofan">
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarBrand">
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <div class="collapse navbar-collapse" id="navbarKofan">
+      <div class="collapse navbar-collapse" id="navbarBrand">
         <ul class="navbar-nav me-auto ms-4 mb-2 mb-lg-0 fw-medium">
           <li class="nav-item">
             <router-link :to="{ name: 'hospedaje-home' }" class="nav-link" exact-active-class="active-link">Hospedaje</router-link>
           </li>
-        
+
           <li class="nav-item">
             <router-link :to="{ name: 'about' }" class="nav-link" active-class="active-link">Nosotros</router-link>
           </li>
@@ -112,7 +111,7 @@ const navbarClasses = computed(() => {
                   <font-awesome-icon :icon="['fas', 'id-card']" class="me-2" /> Mi Perfil
                 </router-link>
               </li>
-              <li v-if="auth.user?.role === 'admin'">
+              <li v-if="auth.isStaff">
                 <router-link class="dropdown-item text-success fw-bold" :to="{ name: 'admin-dashboard' }">
                   <font-awesome-icon :icon="['fas', 'chart-line']" class="me-2" /> Panel Admin
                 </router-link>
@@ -136,7 +135,7 @@ const navbarClasses = computed(() => {
 }
 
 .navbar-solid,
-.bg-kofan {
+.bg-brand {
   background-color: var(--k-forest) !important;
 }
 
@@ -161,8 +160,7 @@ const navbarClasses = computed(() => {
 
 .brand-name,
 .handlee-font,
-.navbar .btn,
-.btn-ingresar-kofan {
+.navbar .btn {
   font-family: "Handlee", cursive;
 }
 

@@ -1,15 +1,17 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { DatePicker as VDatePicker } from 'v-calendar';
-import 'v-calendar/style.css';
-import { searchAvailableRoom } from "@/services/roomService";
-import Swal from 'sweetalert2';
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { DatePicker as VDatePicker } from "v-calendar";
+import "v-calendar/style.css";
+import Swal from "sweetalert2";
+import { findAvailability, listRoomTypes } from "@/api/rooms";
+import { errorMessage } from "@/api/apiClient";
+import { formatDate, toIsoDate } from "@/utils/format";
 
-const emit = defineEmits(['habitacionEncontrada']);
+const emit = defineEmits(["habitacionEncontrada"]);
 
-// 🟢 1. Actualizar Categorías EXACTAS de la base de datos
-const categorias = ['Cabañas Independientes', 'Habitaciones Familiares', 'Habitaciones Individuales'];
-const tipoSeleccionado = ref(categorias[0]);
+// Tipos de habitación del catálogo del backend (code + name)
+const categorias = ref([]);
+const tipoSeleccionado = ref("");
 
 const range = ref({
   start: null,
@@ -18,54 +20,58 @@ const range = ref({
 
 const buscando = ref(false);
 const minDate = ref(new Date());
+const totalHuespedes = ref(2);
 
-// Nuevo: Huéspedes
-const totalHuespedes = ref(2); // Valor por defecto
-
-// 🟢 NUEVO: Lógica responsiva manual (Reemplaza a $screens)
 const columnasCalendario = ref(window.innerWidth >= 768 ? 2 : 1);
 
 const actualizarColumnas = () => {
   columnasCalendario.value = window.innerWidth >= 768 ? 2 : 1;
 };
 
-onMounted(() => window.addEventListener('resize', actualizarColumnas));
-onUnmounted(() => window.removeEventListener('resize', actualizarColumnas));
-// ---------------------------------------------------------
-
-const formatearFecha = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  // Ajuste seguro de zona horaria para enviar YYYY-MM-DD
-  return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+const cargarCategorias = async () => {
+  try {
+    categorias.value = await listRoomTypes();
+    if (!tipoSeleccionado.value && categorias.value.length) {
+      tipoSeleccionado.value = categorias.value[0].code;
+    }
+  } catch (error) {
+    console.error("No se pudieron cargar los tipos de habitación:", error);
+  }
 };
 
-// Nuevo: Formateo de rango de fechas para mostrar (como en la imagen: "29 Abr-30 Abr")
+onMounted(() => {
+  window.addEventListener("resize", actualizarColumnas);
+  cargarCategorias();
+});
+onUnmounted(() => window.removeEventListener("resize", actualizarColumnas));
+
+// Rango de fechas para mostrar (p. ej. "29 abr-30 abr")
 const fechaRangoAMostrar = computed(() => {
-  if (!range.value || !range.value.start || !range.value.end) {
-    return 'Agregar fechas';
+  if (!range.value?.start || !range.value?.end) {
+    return "Agregar fechas";
   }
-  const opciones = { day: 'numeric', month: 'short' };
-  const inicio = range.value.start.toLocaleDateString('es-ES', opciones);
-  const fin = range.value.end.toLocaleDateString('es-ES', opciones);
-  // Reemplazar el punto en el nombre del mes si existe (ej: Abr.)
-  return `${inicio}-${fin}`.replace(/\./g, '');
+  const opciones = { day: "numeric", month: "short" };
+  const inicio = formatDate(toIsoDate(range.value.start), opciones);
+  const fin = formatDate(toIsoDate(range.value.end), opciones);
+  return `${inicio}-${fin}`.replace(/\./g, "");
 });
 
-// 🟢 Creamos un "traductor" para que la Base de Datos entienda la categoría
-const mapeoCategoriasBD = {
-  'Cabañas Independientes': 'Cabins',
-  'Habitaciones Familiares': 'Family',
-  'Habitaciones Individuales': 'Individual'
-};
-
 const buscar = async () => {
-  if (!range.value || !range.value.start || !range.value.end) {
+  if (!range.value?.start || !range.value?.end) {
     Swal.fire({
-      title: 'Selecciona tus fechas',
-      text: 'Por favor indica cuándo llegas y cuándo te vas.',
-      icon: 'warning',
-      confirmButtonColor: '#0f3b2a'
+      title: "Selecciona tus fechas",
+      text: "Por favor indica cuándo llegas y cuándo te vas.",
+      icon: "warning",
+      confirmButtonColor: "#0f3b2a",
+    });
+    return;
+  }
+  if (!tipoSeleccionado.value) {
+    Swal.fire({
+      title: "Selecciona el tipo de alojamiento",
+      text: "Elige qué tipo de habitación buscas.",
+      icon: "warning",
+      confirmButtonColor: "#0f3b2a",
     });
     return;
   }
@@ -73,39 +79,27 @@ const buscar = async () => {
   buscando.value = true;
 
   try {
-    const entrada = formatearFecha(range.value.start);
-    const salida = formatearFecha(range.value.end);
-
-    // 🟢 Usamos el traductor: Si selecciona "Cabañas Independientes", esto guarda "Cabaña"
-    const tipoParaBackend = mapeoCategoriasBD[tipoSeleccionado.value] || tipoSeleccionado.value;
-
-    // Llamamos al servicio con el nombre traducido
-    // 🟢 Le pasamos el totalHuespedes.value como cuarto parámetro
-const response = await searchAvailableRoom(tipoParaBackend, entrada, salida, totalHuespedes.value);
-
-    // ¡Éxito!
-    emit('habitacionEncontrada', {
-      habitacion: response.data,
-      fechas: { start: range.value.start, end: range.value.end },
-      huespedes: totalHuespedes.value 
+    const { room, quote } = await findAvailability({
+      roomType: tipoSeleccionado.value,
+      checkIn: toIsoDate(range.value.start),
+      checkOut: toIsoDate(range.value.end),
+      guests: totalHuespedes.value,
     });
 
+    emit("habitacionEncontrada", {
+      habitacion: room,
+      quote,
+      fechas: { start: range.value.start, end: range.value.end },
+      huespedes: totalHuespedes.value,
+    });
   } catch (error) {
-    if (error.response && error.response.status === 404) {
-      Swal.fire({
-        title: '¡Agotado!',
-        text: `No nos quedan habitaciones tipo '${tipoSeleccionado.value}' para esas fechas. ¡Intenta con otra categoría u otros días!`,
-        icon: 'info',
-        confirmButtonColor: '#0f3b2a'
-      });
-    } else {
-      Swal.fire({
-        title: 'Error de conexión',
-        text: 'Ocurrió un problema al buscar. Inténtalo nuevamente.',
-        icon: 'error',
-        confirmButtonColor: '#0f3b2a'
-      });
-    }
+    const agotado = error.response?.status === 404;
+    Swal.fire({
+      title: agotado ? "¡Agotado!" : "No pudimos buscar",
+      text: errorMessage(error, "Ocurrió un problema al buscar. Inténtalo nuevamente."),
+      icon: agotado ? "info" : "error",
+      confirmButtonColor: "#0f3b2a",
+    });
   } finally {
     buscando.value = false;
   }
@@ -126,7 +120,7 @@ const response = await searchAvailableRoom(tipoParaBackend, entrada, salida, tot
             <label class="form-label compact-label fw-bold text-success mb-0">¿Qué buscas?</label>
             <!-- 3. Agregamos py-0 y compact-select para aplastar el input -->
             <select v-model="tipoSeleccionado" class="form-select border-0 shadow-none px-0 py-0 fw-semibold text-dark search-input bg-transparent text-truncate compact-select">
-              <option v-for="cat in categorias" :key="cat" :value="cat">{{ cat }}</option>
+              <option v-for="cat in categorias" :key="cat.code" :value="cat.code">{{ cat.name }}</option>
             </select>
           </div>
         </div>
@@ -190,7 +184,7 @@ const response = await searchAvailableRoom(tipoParaBackend, entrada, salida, tot
 }
 
 .input-group-hover:hover {
-  border-bottom: 1px solid #0f3b2a; /* Se vuelve verde Kofán al acercar el mouse */
+  border-bottom: 1px solid #0f3b2a;
 }
 
 /* Ajustes de tipografía para que se vea más limpio */

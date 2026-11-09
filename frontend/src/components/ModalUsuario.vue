@@ -1,13 +1,13 @@
 <script setup>
 import FormularioRegistro from "@/components/FormularioRegistro.vue";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 const props = defineProps({
   show: Boolean,
   cargando: Boolean,
-  usuarioEditando: Object, // 🟢 Recibimos el usuario a editar
+  usuarioEditando: Object,
 });
 
+// Reenvía el payload del formulario (nombres de campo de la API v1) al gestor de usuarios.
 const emit = defineEmits(["cerrar", "guardar"]);
 
 const propagarGuardado = (datosDelFormulario) => {
@@ -25,7 +25,7 @@ const propagarGuardado = (datosDelFormulario) => {
       <div class="modal-content border-0 shadow-lg rounded-4 p-3">
         <div class="modal-header border-0 pb-0 position-relative">
           <div class="w-100 text-center">
-            <h2 class="fw-bold verde-kofan mb-1">
+            <h2 class="fw-bold verde-brand mb-1">
               <font-awesome-icon
                 :icon="
                   usuarioEditando
@@ -61,9 +61,6 @@ const propagarGuardado = (datosDelFormulario) => {
 </template>
 
 <style scoped>
-.verde-kofan {
-  color: #0f3b2a;
-}
 .divider {
   width: 50px;
   height: 3px;

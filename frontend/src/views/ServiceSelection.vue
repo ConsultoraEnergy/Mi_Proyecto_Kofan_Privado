@@ -1,15 +1,14 @@
 <template>
   <div class="service-selection">
-    <div class="overlay-kofan">
+    <div class="overlay-brand">
       <div class="container text-center py-5">
         <font-awesome-icon
           icon="fa-solid fa-leaf"
           class="text-success mb-3 fs-1"
         />
-        <h1 class="display-4 fw-bold text-white mb-2">Experiencias Kofán</h1>
+        <h1 class="display-4 fw-bold text-white mb-2">Experiencias {{ configStore.hotelName }}</h1>
         <p class="text-light lead mb-5">
-          Elige el tipo de experiencia que deseas vivir en el corazón del
-          Putumayo
+          Elige el tipo de experiencia que deseas vivir
         </p>
 
         <div class="row g-4 justify-content-center">
@@ -50,11 +49,13 @@
 
 <script setup>
 import { useRouter } from "vue-router";
+import { useConfigStore } from "@/stores/config";
 
 const router = useRouter();
+const configStore = useConfigStore();
 
 const goToHospedaje = () => {
-  router.push("/servicios/hospedaje");
+  router.push({ name: "hospedaje-home" });
 };
 </script>
 
@@ -67,7 +68,7 @@ const goToHospedaje = () => {
   background-position: center;
 }
 
-.overlay-kofan {
+.overlay-brand {
   min-height: 100vh;
   background: rgba(15, 59, 42, 0.8);
   display: flex;

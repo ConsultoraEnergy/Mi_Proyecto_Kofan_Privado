@@ -76,3 +76,6 @@ test-results/
 playwright-report/
 .pytest_cache/
 **/__pycache__/
+
+# Entorno de Python gestionado por uv
+.venv/

@@ -381,7 +381,7 @@ backend/app/
 Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 
 ### Fase 0 — Bloqueantes de seguridad (antes de cualquier funcionalidad nueva)
-> ✅ Implementada el 2026-11-09 — pruebas en `testing/test_seguridad_fase0.py`, accesos en `docs/ENDPOINTS_ACCESO.md`. Pendiente: migrar comprobantes antiguos (`python -m backend.scripts.migrar_comprobantes_privados --aplicar`) y rotar credenciales.
+> ✅ Implementada el 2026-11-09 y absorbida por la reescritura de la Fase 1 (sus pruebas viven ahora en `backend/tests/`). Pendiente manual: rotar credenciales.
 
 - [x] **S** Proteger el router de facturas con `required_admin` dentro de `APIRouter(...)` (5.1).
 - [x] **S** Cambiar `/rooms/create-with-images` a `required_admin`; revisar **todos** los endpoints y documentar su nivel de acceso (5.2).
@@ -399,27 +399,31 @@ Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 - [x] **S** Sacar `backend/static/uploads`, `static/images`, `.coverage`, `test-results/` del control de versiones.
 
 ### Fase 1 — Fundaciones de la base Kawari
-- [ ] **M** `pydantic-settings`: un único `Settings` (Mongo URI, DB name, secretos, CORS, nombre del hotel, zona horaria, moneda, % anticipo, plazo de expiración).
-- [ ] **M** Eliminar toda referencia *hardcodeada* a "Kofán" (backend, frontend, textos, BD) y llevarla a configuración/`settings` en BD.
-- [ ] **M** Unificar dependencias Python en `pyproject.toml` (uv), separar `dev/test`, quitar `windows-curses`, fijar versiones.
-- [ ] **M** Migrar Motor → PyMongo Async; `python-jose` → PyJWT; `passlib` → `pwdlib[argon2]`.
-- [ ] **L** Reestructurar backend en módulos (`routers → services → repositories`), errores de dominio + *exception handlers*, `response_model` en todos los endpoints.
-- [ ] **M** Unificar prefijos bajo `/api/v1`, nombres consistentes (un idioma) y quitar el doble `/api/api`.
-- [ ] **M** Esquema de datos revisado: catálogo `room_types`, `active` vs estado operativo, referencias siempre `ObjectId`, eliminar `$lookup` a `clients` (6.3, 6.5).
-- [ ] **M** Índices únicos y compuestos (users.email, users.number_document, invoices.booking_id, bookings compuesto, notifications) + validación `$jsonSchema` en colecciones críticas.
-- [ ] **L** Anti doble-reserva con `room_nights` + transacciones; responder 409 en conflicto (6.1).
-- [ ] **M** Máquina de estados de reserva con transiciones válidas y registro de auditoría (6.4).
-- [ ] **M** Auth completa: `/auth/refresh` con rotación, refresh en cookie HttpOnly, logout que invalida, verificación de email, recuperación de contraseña, contraseña obligatoria en registro público (5.4, 5.10).
-- [ ] **M** RBAC por permisos con rol `recepcionista` funcional (7.7).
-- [ ] **S** Fechas: UTC en BD, ISO en API, `zoneinfo` para lógica de negocio; quitar `timedelta(hours=5)` y `utcnow()` (7.8).
-- [ ] **S** Frontend: módulo único de configuración de entorno + helper `assetUrl`; eliminar URLs `localhost` (9.1).
-- [ ] **M** Frontend: interceptor con refresh token y carga de `/users/me` al iniciar (9.2).
-- [ ] **S** Limpiar `package.json` (`from`, `git`), renombrar proyecto, unificar `package.json` raíz/frontend.
-- [ ] **S** Script `seed` idempotente (admin inicial, tipos de habitación, settings por defecto).
+> ✅ Implementada el 2026-11-09. Decisiones del usuario: BD nueva y vacía (sin migrar datos de Kofán), API y esquema en inglés bajo `/api/v1`, correo por SMTP configurable. Backend reescrito en `backend/app/` (77 pruebas contra MongoDB real, cobertura 91 %); contrato en `docs/API_V1.md`; accesos en `docs/ENDPOINTS_ACCESO.md`.
+> Nota de diseño (6.1): la garantía anti doble reserva es el índice único `room_nights(room_id, night)`; la atomicidad se logra con compensación (sin transacciones), así funciona también en MongoDB standalone. Ver `backend/app/modules/bookings/repository.py`.
+> Pendiente: datos de marca de Kawari (colores, logo, contacto) y reemplazar las fotos de `frontend/src/img`, que son de Kofán.
+
+- [x] **M** `pydantic-settings`: un único `Settings` (Mongo URI, DB name, secretos, CORS, nombre del hotel, zona horaria, moneda, % anticipo, plazo de expiración).
+- [x] **M** Eliminar toda referencia *hardcodeada* a "Kofán" (backend, frontend, textos, BD) y llevarla a configuración/`settings` en BD.
+- [x] **M** Unificar dependencias Python en `pyproject.toml` (uv), separar `dev/test`, quitar `windows-curses`, fijar versiones.
+- [x] **M** Migrar Motor → PyMongo Async; `python-jose` → PyJWT; `passlib` → `pwdlib[argon2]`.
+- [x] **L** Reestructurar backend en módulos (`routers → services → repositories`), errores de dominio + *exception handlers*, `response_model` en todos los endpoints.
+- [x] **M** Unificar prefijos bajo `/api/v1`, nombres consistentes (un idioma) y quitar el doble `/api/api`.
+- [x] **M** Esquema de datos revisado: catálogo `room_types`, `active` vs estado operativo, referencias siempre `ObjectId`, eliminar `$lookup` a `clients` (6.3, 6.5).
+- [x] **M** Índices únicos y compuestos (users.email, users.number_document, invoices.booking_id, bookings compuesto, notifications) + validación `$jsonSchema` en colecciones críticas.
+- [x] **L** Anti doble-reserva con `room_nights` + transacciones; responder 409 en conflicto (6.1).
+- [x] **M** Máquina de estados de reserva con transiciones válidas y registro de auditoría (6.4).
+- [x] **M** Auth completa: `/auth/refresh` con rotación, refresh en cookie HttpOnly, logout que invalida, verificación de email, recuperación de contraseña, contraseña obligatoria en registro público (5.4, 5.10).
+- [x] **M** RBAC por permisos con rol `recepcionista` funcional (7.7).
+- [x] **S** Fechas: UTC en BD, ISO en API, `zoneinfo` para lógica de negocio; quitar `timedelta(hours=5)` y `utcnow()` (7.8).
+- [x] **S** Frontend: módulo único de configuración de entorno + helper `assetUrl`; eliminar URLs `localhost` (9.1).
+- [x] **M** Frontend: interceptor con refresh token y carga de `/users/me` al iniciar (9.2).
+- [x] **S** Limpiar `package.json` (`from`, `git`), renombrar proyecto, unificar `package.json` raíz/frontend.
+- [x] **S** Script `seed` idempotente (admin inicial, tipos de habitación, settings por defecto).
 
 ### Fase 2 — Calidad y automatización
-- [ ] **M** Pruebas de autorización: cada endpoint protegido devuelve 401/403 sin credenciales/rol adecuado.
-- [ ] **M** Pruebas de dominio: precios, disponibilidad, solapamiento (incluida concurrencia), transiciones de estado, expiración.
+- [x] **M** Pruebas de autorización: cada endpoint protegido devuelve 401/403 sin credenciales/rol adecuado. *(hecho en la Fase 1)*
+- [x] **M** Pruebas de dominio: precios, disponibilidad, solapamiento (incluida concurrencia), transiciones de estado, expiración. *(hecho en la Fase 1)*
 - [ ] **M** Pruebas de frontend para stores (`auth`, `reserva`) y E2E del flujo de reserva completo (invitado y autenticado) y del flujo admin (aprobar → check-in → check-out).
 - [ ] **S** Linters: Ruff + mypy (backend), ESLint + Prettier (frontend); `pre-commit`.
 - [ ] **M** `Dockerfile` (api, web) + `docker-compose.yml` (api, web, mongo, redis) para desarrollo local con un comando.
@@ -439,7 +443,7 @@ Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 - [ ] **S** Backups y alertas en Atlas; documentar procedimiento de restauración.
 
 ### Fase 4 — Producto (oportunidades para Kawari)
-- [ ] **L** Pasarela de pago local (p. ej. Wompi / Mercado Pago / PSE) para reemplazar la carga manual de comprobantes; webhooks → confirmación automática.
+- [ ] ~~**L** Pasarela de pago local (p. ej. Wompi / Mercado Pago / PSE) para reemplazar la carga manual de comprobantes; webhooks → confirmación automática.~~ **Fuera de alcance por ahora (decisión 2026-11-09):** el pago se hace por transferencia + comprobante subido y verificado manualmente por el hotel.
 - [ ] **M** Tarifas por temporada, fines de semana y estancia mínima (`rates`).
 - [ ] **M** Notificaciones por correo/WhatsApp (confirmación, recordatorio de check-in, expiración).
 - [ ] **M** Contenido del sitio (textos, misión/visión, galería) 100 % editable desde el panel.
