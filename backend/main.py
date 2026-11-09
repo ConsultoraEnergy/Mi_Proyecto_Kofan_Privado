@@ -6,9 +6,9 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Importaciones de tu aplicación
-from backend.routers import admin, auth, earnings, register, users, bookings, rooms, config, gallery, invoices, dashboard, notifications, availability
+from backend.routers import auth, earnings, register, users, bookings, rooms, config, gallery, invoices, dashboard, notifications, availability
 from backend.services.task_service import cancelar_reservas_vencidas
-from backend.core.config import UPLOAD_DIR
+from backend.core.config import UPLOAD_DIR, PRIVATE_UPLOAD_DIR, BOOKING_EXPIRATION_CHECK_MINUTES
 from backend.db.client import db
 
 # 🟢 1. UNIFICAMOS EL LIFESPAN (Tareas automáticas + Índices BD)
@@ -19,7 +19,14 @@ async def lifespan(app: FastAPI):
     
     # A) Iniciar tareas en segundo plano
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(cancelar_reservas_vencidas, 'interval', hours=24)
+    # 6.2: revisión frecuente; el plazo de vencimiento se configura en BOOKING_PENDING_EXPIRATION_HOURS.
+    scheduler.add_job(
+        cancelar_reservas_vencidas,
+        'interval',
+        minutes=BOOKING_EXPIRATION_CHECK_MINUTES,
+        max_instances=1,
+        coalesce=True,
+    )
     scheduler.start()
     print("⏳ Motor de tareas automáticas iniciado.")
 
@@ -55,6 +62,8 @@ IMAGES_DIR = os.path.join(STATIC_DIR, "images")
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(IMAGES_DIR, exist_ok=True)
+# Comprobantes de pago: carpeta privada, deliberadamente NO montada como estática (5.6).
+os.makedirs(PRIVATE_UPLOAD_DIR, exist_ok=True)
 
 # Montamos las rutas para que el frontend las pueda ver
 app.mount("/static/uploads", StaticFiles(directory=UPLOADS_DIR), name="static_uploads")
@@ -82,7 +91,6 @@ app.include_router(bookings.router)
 app.include_router(register.router)
 app.include_router(earnings.router)
 app.include_router(rooms.router)
-app.include_router(admin.router)
 app.include_router(config.router)
 app.include_router(gallery.router)
 app.include_router(invoices.router)

@@ -62,3 +62,17 @@ backend/.venv/
 env/
 venv/
 
+
+# Archivos subidos por usuarios / contenido (van a object storage, no a git)
+backend/static/uploads/
+backend/static/images/
+# Comprobantes de pago: almacenamiento PRIVADO (nunca versionar ni servir)
+backend/private_uploads/
+
+# Artefactos de pruebas
+.coverage
+htmlcov/
+test-results/
+playwright-report/
+.pytest_cache/
+**/__pycache__/

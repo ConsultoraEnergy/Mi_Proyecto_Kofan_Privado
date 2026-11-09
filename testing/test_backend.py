@@ -23,7 +23,8 @@ async def test_login_falla_con_credenciales_invalidas(api_client, admin_user):
     )
 
     assert response.status_code == 401
-    assert "Contraseña incorrecta" in response.json()["detail"]
+    # Mensaje genérico: no revela si el correo existe (5.12)
+    assert response.json()["detail"] == "Correo o contraseña incorrectos"
 
 
 async def test_crud_basico_de_usuario_con_perfil(api_client, admin_headers):
@@ -69,7 +70,7 @@ async def test_crud_basico_de_usuario_con_perfil(api_client, admin_headers):
     assert actualiza.json()["user"]["phone"] == "3205550000"
 
 
-async def test_creacion_de_reserva_y_bloqueo_por_solapamiento(api_client, sample_room):
+async def test_creacion_de_reserva_y_bloqueo_por_solapamiento(api_client, sample_room, png_bytes):
     payload = {
         "habitacion_id": str(sample_room["_id"]),
         "fecha_entrada": "2026-04-20",
@@ -81,7 +82,9 @@ async def test_creacion_de_reserva_y_bloqueo_por_solapamiento(api_client, sample
         "observaciones": "Reserva de prueba",
     }
 
-    primera = await api_client.post("/api/reservas/invitado", data=payload)
+    comprobante = {"comprobante": ("pago.png", png_bytes, "image/png")}
+
+    primera = await api_client.post("/api/reservas/invitado", data=payload, files=comprobante)
     assert primera.status_code == 200
     assert primera.json()["reserva_id"]
 
@@ -93,6 +96,7 @@ async def test_creacion_de_reserva_y_bloqueo_por_solapamiento(api_client, sample
             "fecha_entrada": "2026-04-21",
             "fecha_salida": "2026-04-23",
         },
+        files=comprobante,
     )
 
     assert segunda.status_code == 400

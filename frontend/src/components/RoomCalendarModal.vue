@@ -200,26 +200,24 @@ const crearReservaAdmin = async () => {
     const fEntrada = new Date(range.value.start.getTime() - (range.value.start.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     const fSalida = new Date(range.value.end.getTime() - (range.value.end.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 
-    // Armamos el JSON con el ID seguro
+    // Armamos el JSON con el ID seguro.
+    // monto_total es opcional: si el admin lo deja vacío, el backend calcula el precio.
     const payload = {
       habitacion_id: idSeguro, 
       fecha_entrada: fEntrada,
       fecha_salida: fSalida,
-      monto_total: formularioAdmin.monto_total,
-      acompanantes: [], 
+      monto_total: formularioAdmin.monto_total ? Number(formularioAdmin.monto_total) : null,
       observaciones: formularioAdmin.observaciones || "Reserva manual desde Panel Admin",
       cliente_nombre: formularioAdmin.cliente_nombre,
       cliente_email: formularioAdmin.cliente_email,
       cliente_celular: formularioAdmin.cliente_celular,
-      tipo_persona: "Natural",
-      tipo_documento: "Pendient", 
-      cliente_documento: "0"
     };
 
     // 🔍 TRAMPA DE DEBUG 2: Imprimimos el JSON exacto que va a viajar a FastAPI
     console.log("JSON a enviar:", payload);
 
-    await apiClient.post('/api/reservas/invitado', payload);
+    // Endpoint exclusivo de administrador (la reserva queda confirmada)
+    await apiClient.post('/api/reservas/admin', payload);
 
     Swal.fire({
       title: '¡Reserva Confirmada!',

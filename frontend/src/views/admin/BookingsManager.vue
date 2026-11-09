@@ -121,6 +121,26 @@ const reservasParaMostrar = computed(() => {
   return filtradas;
 });
 
+// 🔒 Los comprobantes ya no son públicos: se descargan con el token del admin
+// y se abren como un archivo local (blob) en una pestaña nueva.
+const verComprobante = async (urlComprobante) => {
+  // Abrimos la pestaña de inmediato (dentro del clic) para que el navegador no la bloquee.
+  const ventana = window.open("", "_blank");
+  try {
+    const { data } = await apiClient.get(urlComprobante, { responseType: "blob" });
+    const objectUrl = URL.createObjectURL(data);
+    if (ventana) {
+      ventana.location.href = objectUrl;
+    } else {
+      window.open(objectUrl, "_blank");
+    }
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  } catch (error) {
+    ventana?.close();
+    Swal.fire("Error", "No se pudo cargar el comprobante de pago.", "error");
+  }
+};
+
 // 🟢 2. SEPARACIÓN DE LÓGICA: Solo llamadas a la API
 const procesarCambioEstadoAPI = async (id, nuevoEstado, datosReserva) => {
   // 1. Actualizamos el estado de la reserva
@@ -544,16 +564,16 @@ onMounted(() => {
                 </td>
                 <td class="text-center align-middle">
                   <div class="d-flex justify-content-center gap-2">
-                    <a
+                    <button
                       v-if="res.comprobante_url"
-                      :href="`http://127.0.0.1:8000${res.comprobante_url}`"
-                      target="_blank"
+                      type="button"
+                      @click="verComprobante(res.comprobante_url)"
                       class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
                       style="width: 35px; height: 35px"
                       title="Ver Comprobante de Pago"
                     >
                       <font-awesome-icon icon="fa-solid fa-images" class="fs-6" />
-                    </a>
+                    </button>
 
                     <button
                       v-if="res.estado === ESTADOS_RESERVA.PENDIENTE"

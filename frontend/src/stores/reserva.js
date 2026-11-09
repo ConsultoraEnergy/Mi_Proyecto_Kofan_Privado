@@ -201,7 +201,6 @@ export const useReservaStore = defineStore("reserva", () => {
       formData.append("habitacion_id", habitacionSeleccionada.value.id || habitacionSeleccionada.value._id);
       formData.append("fecha_entrada", fechaInString);
       formData.append("fecha_salida", fechaOutString);
-      formData.append("monto_total", totalCalculado.value);
       formData.append("observaciones", "Reserva web pública con comprobante adjunto.");
       formData.append("tipo_persona", "natural");
       formData.append("tipo_documento", "CC");

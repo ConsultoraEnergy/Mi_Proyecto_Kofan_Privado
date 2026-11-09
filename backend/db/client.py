@@ -10,8 +10,7 @@ print(f"📂 Buscando .env en: {ENV_PATH}")
 
 load_dotenv(dotenv_path=ENV_PATH)
 
-uri = os.getenv("MONGO_URI") 
-print(f"🔍 URI cargada: {uri}")
+uri = os.getenv("MONGO_URI")
 
 if not uri:
     raise ValueError("❌ ¡ALERTA! MONGO_URI está vacío. El archivo .env no está ahí o está vacío.")

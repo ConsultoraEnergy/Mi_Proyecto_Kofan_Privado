@@ -5,8 +5,34 @@ from backend.schemas.booking_schema import ReservaCreate
 from datetime import datetime, timezone
 from fastapi import HTTPException, status 
 from backend.services.notifications_service import crear_notificacion_panel
+from backend.services.pricing_service import calcular_precio_reserva, calcular_anticipo
 
-async def create_booking_service(reserva, user_id: str = None):
+
+def _habitacion_activa(habitacion: dict) -> bool:
+    # Datos heredados guardan "active" como bool o como texto ("true"/"false").
+    return str(habitacion.get("active", True)).strip().lower() not in ("false", "0", "no")
+
+
+def comprobante_endpoint(reserva: dict):
+    """URL (relativa al cliente API) para descargar el comprobante, o None si no tiene."""
+    if reserva.get("comprobante_archivo") or reserva.get("comprobante_url"):
+        return f"/api/reservas/{reserva['_id']}/comprobante"
+    return None
+
+
+async def create_booking_service(
+    reserva,
+    user_id: str = None,
+    monto_override: float = None,
+    estado_inicial: str = None,
+    creado_por: str = None,
+):
+    """
+    Crea una reserva validando disponibilidad.
+
+    - El precio se calcula aquí a partir de la tarifa de la habitación (5.3).
+    - `monto_override` solo debe pasarse desde rutas de administrador (precio negociado).
+    """
     # 1. VALIDAR ID Y BUSCAR HABITACIÓN
     try:
         habitacion_obj_id = ObjectId(reserva.habitacion_id)
@@ -14,8 +40,11 @@ async def create_booking_service(reserva, user_id: str = None):
         raise HTTPException(status_code=400, detail="El ID de la habitación no es válido.")
 
     habitacion = await db.rooms.find_one({"_id": habitacion_obj_id})
-    if not habitacion:
-        raise HTTPException(status_code=404, detail="La habitación no existe.")
+    if not habitacion or not _habitacion_activa(habitacion):
+        raise HTTPException(status_code=404, detail="La habitación no existe o no está disponible para reservas.")
+
+    # 1b. PRECIO CALCULADO EN EL SERVIDOR (valida también que salida > entrada)
+    precio = calcular_precio_reserva(habitacion, reserva.fecha_entrada, reserva.fecha_salida)
 
     # 2. PREPARAR LAS FECHAS NUEVAS (En formato UTC para buscar en MongoDB)
     nueva_entrada = datetime.combine(reserva.fecha_entrada, datetime.min.time()).replace(tzinfo=timezone.utc)
@@ -42,9 +71,19 @@ async def create_booking_service(reserva, user_id: str = None):
     
     reserva_dict["fecha_entrada"] = nueva_entrada
     reserva_dict["fecha_salida"] = nueva_salida
-    
-    if not reserva_dict.get("estado"):
-        reserva_dict["estado"] = "pendiente"
+    reserva_dict.update(precio)
+
+    if monto_override is not None:
+        reserva_dict["monto_calculado"] = precio["monto_total"]
+        reserva_dict["monto_total"] = round(float(monto_override), 2)
+        reserva_dict["anticipo"] = calcular_anticipo(reserva_dict["monto_total"])
+
+    if reserva_dict.get("cliente_email"):
+        reserva_dict["cliente_email"] = reserva_dict["cliente_email"].strip().lower()
+
+    reserva_dict["estado"] = estado_inicial or "pendiente"
+    if creado_por:
+        reserva_dict["creado_por"] = creado_por
         
     reserva_dict["cliente_id"] = ObjectId(user_id) if user_id else None 
     reserva_dict["habitacion_id"] = habitacion_obj_id
@@ -52,8 +91,15 @@ async def create_booking_service(reserva, user_id: str = None):
 
     # 5. GUARDAR LA RESERVA
     result = await db.bookings.insert_one(reserva_dict)
-    
-    return str(result.inserted_id)
+
+    return {
+        "id": str(result.inserted_id),
+        "noches": reserva_dict["noches"],
+        "precio_noche": reserva_dict["precio_noche"],
+        "monto_total": reserva_dict["monto_total"],
+        "anticipo": reserva_dict["anticipo"],
+        "porcentaje_anticipo": reserva_dict["porcentaje_anticipo"],
+    }
 
 
 # 🟢 ACTUALIZADO: Capta el estado anterior y notifica a Cliente y Admin con el nombre real de la habitación
@@ -268,7 +314,8 @@ async def get_all_bookings_service(estados_filtro: str = None, page: int = 1, li
             "estado": estado,
             "fecha_entrada": str(reserva.get("fecha_entrada", "N/A"))[:10],
             "fecha_salida": str(reserva.get("fecha_salida", "N/A"))[:10],
-            "comprobante_url": reserva.get("comprobante_url", None)
+            # 5.6: ya no se expone la ruta del archivo; solo el endpoint autenticado.
+            "comprobante_url": comprobante_endpoint(reserva),
         })
 
     habitaciones_ocupadas = await db.rooms.count_documents({"is_available": False})

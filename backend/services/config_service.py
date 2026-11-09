@@ -1,6 +1,5 @@
 from backend.db.client import db
-from backend.services.media_service import save_image, delete_image
-from fastapi.concurrency import run_in_threadpool
+from backend.services.storage_service import save_public_image, delete_public_file
 from fastapi import UploadFile
 
 async def get_site_config():
@@ -17,14 +16,14 @@ async def update_site_logo(file: UploadFile):
     config_actual = await db.settings.find_one({})
     logo_viejo = config_actual.get("logo_url") if config_actual else None
 
-    # 2. Guardamos el nuevo archivo en un hilo seguro
-    file_url = await run_in_threadpool(save_image, file)
+    # 2. Guardamos el nuevo archivo (validado y re-codificado)
+    file_url = await save_public_image(file)
     
     # 3. Actualizamos la BD
     await db.settings.update_one({}, {"$set": {"logo_url": file_url}}, upsert=True)
 
     # 4. Limpiamos la basura del disco duro
     if logo_viejo:
-        await run_in_threadpool(delete_image, logo_viejo)
+        await delete_public_file(logo_viejo)
 
     return {"logo_url": file_url}

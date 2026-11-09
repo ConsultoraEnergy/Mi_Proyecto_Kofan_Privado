@@ -1,32 +1,9 @@
 from backend.db.client import db
-from backend.core.config import UPLOAD_DIR, ALLOWED_TYPES
+from backend.services.storage_service import save_public_image, delete_public_file
 from bson import ObjectId
+from bson.errors import InvalidId
 from datetime import datetime, timezone
-from fastapi import UploadFile, HTTPException
-from fastapi.concurrency import run_in_threadpool # 🟢 IMPORTANTE
-import uuid, os, shutil
-
-# Esta función la usaremos dentro del threadpool
-def save_physical_file(file: UploadFile) -> str:
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ext = file.filename.rsplit(".", 1)[-1]
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join(UPLOAD_DIR, filename)
-
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # 🟢 Asegúrate de que esta URL coincida con tu main.py (ej: /static/uploads/...)
-    return f"/static/uploads/{filename}"
-
-def delete_physical_file(file_url: str):
-    try:
-        filename = file_url.split("/")[-1]
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
-    except Exception as e:
-        print(f"Error borrando archivo físico: {e}")
+from fastapi import UploadFile
 
 async def get_all_photos(categoria: str = None):
     query = {}
@@ -52,11 +29,8 @@ async def get_all_photos(categoria: str = None):
     return photos
 
 async def upload_photo(file: UploadFile, titulo: str, categoria: str, uploader_email: str):
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=400, detail="Tipo de archivo no permitido. Solo JPEG, PNG o WebP.")
-
-    # 🟢 EJECUCIÓN SEGURA PARA NO BLOQUEAR EL SERVIDOR
-    url = await run_in_threadpool(save_physical_file, file)
+    # Valida el contenido real, re-codifica y guarda fuera del event loop
+    url = await save_public_image(file)
 
     doc = {
         "url": url,
@@ -70,14 +44,19 @@ async def upload_photo(file: UploadFile, titulo: str, categoria: str, uploader_e
     return {"id": str(result.inserted_id), "url": url, "titulo": titulo, "categoria": categoria}
 
 async def delete_photo(photo_id: str):
-    photo = await db.gallery.find_one({"_id": ObjectId(photo_id)})
+    try:
+        photo_oid = ObjectId(photo_id)
+    except InvalidId:
+        return False
+
+    photo = await db.gallery.find_one({"_id": photo_oid})
 
     if not photo:
         return False
 
     if "url" in photo:
         # 🟢 BORRADO FÍSICO SEGURO
-        await run_in_threadpool(delete_physical_file, photo["url"])
+        await delete_public_file(photo["url"])
 
-    result = await db.gallery.delete_one({"_id": ObjectId(photo_id)})
+    result = await db.gallery.delete_one({"_id": photo_oid})
     return result.deleted_count > 0

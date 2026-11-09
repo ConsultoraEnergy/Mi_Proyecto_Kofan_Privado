@@ -1,6 +1,11 @@
 import importlib
+import os
 import sys
 from pathlib import Path
+
+# Valores seguros para pruebas (si existe backend/.env, load_dotenv NO los sobrescribe).
+os.environ.setdefault("SECRET_KEY", "test-secret-key-solo-para-pruebas-0123456789abcdef")
+os.environ.setdefault("MONGO_URI", "mongodb://localhost:27017")
 
 import pytest
 import pytest_asyncio
@@ -38,6 +43,7 @@ async def test_db(monkeypatch):
         "backend.services.task_service",
         "backend.routers.rooms",
         "backend.routers.invoices",
+        "backend.routers.bookings",
     ]
 
     for module_name in modules_to_patch:
@@ -54,8 +60,21 @@ async def test_db(monkeypatch):
     await mock_client.drop_database("ecohotel_kofan_test_db")
 
 
+@pytest.fixture
+def storage_dirs(tmp_path, monkeypatch):
+    """Redirige las carpetas de archivos a un directorio temporal (no toca backend/static)."""
+    storage = importlib.import_module("backend.services.storage_service")
+    public_dir = tmp_path / "uploads"
+    private_dir = tmp_path / "private_uploads"
+    public_dir.mkdir()
+    private_dir.mkdir()
+    monkeypatch.setattr(storage, "UPLOAD_DIR", str(public_dir))
+    monkeypatch.setattr(storage, "PRIVATE_UPLOAD_DIR", str(private_dir))
+    return {"public": public_dir, "private": private_dir}
+
+
 @pytest_asyncio.fixture
-async def api_client(test_db):
+async def api_client(test_db, storage_dirs):
     from backend.main import app
 
     transport = ASGITransport(app=app)
@@ -136,3 +155,29 @@ async def sample_room(test_db):
     result = await test_db.rooms.insert_one(room_doc)
     room_doc["_id"] = result.inserted_id
     return room_doc
+
+
+async def _login_headers(api_client, email, password):
+    response = await api_client.post("/auth/login", data={"username": email, "password": password})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    return {"Authorization": f"{data['token_type']} {data['access_token']}"}
+
+
+@pytest_asyncio.fixture
+async def client_headers(api_client, client_user):
+    return await _login_headers(api_client, client_user["email"], "Cliente123*")
+
+
+def make_png_bytes(size=(4, 4), color=(30, 120, 60)) -> bytes:
+    from io import BytesIO
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", size, color).save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def png_bytes():
+    return make_png_bytes()

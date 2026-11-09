@@ -1,10 +1,19 @@
 from typing import Optional
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, Form, File, UploadFile, HTTPException, status
+from fastapi.responses import FileResponse
+from backend.db.client import db
 from backend.dependencies.auth import get_current_user, required_admin
-from backend.schemas.booking_schema import ReservaCreate, EstadoReserva, UpdateEstadoReserva, ReservaPublicCreate, UpdateReservaDetalles
+from backend.schemas.booking_schema import ReservaCreate, UpdateEstadoReserva, ReservaPublicCreate, UpdateReservaDetalles, ReservaAdminCreate
 from backend.services.booking_service import create_booking_service, get_all_bookings_service, get_user_bookings_service, update_booking_status_service, update_booking_details_service
-from enum import Enum
-from backend.services.media_service import save_image
+from backend.services.storage_service import (
+    save_private_receipt,
+    delete_private_receipt,
+    private_receipt_path,
+    legacy_public_path,
+    media_type_for,
+)
 from datetime import datetime, timezone
 
 router = APIRouter(
@@ -12,31 +21,37 @@ router = APIRouter(
     tags=["api/reservas"]
 )
 
+
+async def _crear_reserva_con_comprobante(reserva_datos, comprobante: UploadFile, **kwargs) -> dict:
+    """Guarda el comprobante en almacenamiento privado y crea la reserva.
+    Si la reserva falla (fechas ocupadas, habitación inválida...), borra el comprobante."""
+    clave = await save_private_receipt(comprobante)
+    reserva_datos.comprobante_archivo = clave
+    try:
+        return await create_booking_service(reserva_datos, **kwargs)
+    except Exception:
+        await delete_private_receipt(clave)
+        raise
+
+
 # PARA CREAR UNA RESERVA, SOLO USUARIOS AUTENTICADOS
+# Nota: cualquier "monto_total" que envíe el cliente se ignora; el backend calcula el precio (5.3).
 @router.post("/")
 async def registrar_reserva(
     habitacion_id: str = Form(...),
     fecha_entrada: str = Form(...),
     fecha_salida: str = Form(...),
-    monto_total: float = Form(...),
     cliente_nombre: str = Form(...),
     cliente_email: str = Form(...),
     cliente_celular: str = Form(...),
     observaciones: str = Form(None),
-    comprobante: Optional[UploadFile] = File(None),
+    comprobante: UploadFile = File(...),  # RN-05: toda reserva web exige comprobante
     user = Depends(get_current_user) # 🔒 Requiere Token
 ):
-    # 1. Manejo del Comprobante
-    ruta_comprobante = None
-    if comprobante:
-        ruta_comprobante = save_image(comprobante)
-
-    # 2. Armamos el esquema manual (ReservaCreate)
     reserva_datos = ReservaCreate(
         habitacion_id=habitacion_id,
         fecha_entrada=fecha_entrada,
         fecha_salida=fecha_salida,
-        monto_total=monto_total,
         cliente_nombre=cliente_nombre,
         cliente_email=cliente_email,
         cliente_celular=cliente_celular,
@@ -44,18 +59,16 @@ async def registrar_reserva(
         tipo_documento="CC", 
         cliente_documento="0",
         observaciones=observaciones,
-        comprobante_url=ruta_comprobante
     )
 
-    # 3. Extraemos el ID del usuario directamente del token
-    user_id_from_token = str(user["_id"])
-    
-    # 4. Guardamos la reserva vinculándola al ID del usuario
-    nueva_reserva_id = await create_booking_service(reserva_datos, user_id_from_token)
+    reserva = await _crear_reserva_con_comprobante(reserva_datos, comprobante, user_id=str(user["_id"]))
     
     return {
         "message": "Reserva creada exitosamente",
-        "reserva_id": nueva_reserva_id,
+        "reserva_id": reserva["id"],
+        "monto_total": reserva["monto_total"],
+        "anticipo": reserva["anticipo"],
+        "noches": reserva["noches"],
         "usuario_que_reservo": user["email"] 
     }
 
@@ -64,23 +77,16 @@ async def registrar_reserva_publica(
     habitacion_id: str = Form(...),
     fecha_entrada: str = Form(...),
     fecha_salida: str = Form(...),
-    monto_total: float = Form(...),
     cliente_nombre: str = Form(...),
     cliente_email: str = Form(...),
     cliente_celular: str = Form(...),
     observaciones: str = Form(None),
-    comprobante: Optional[UploadFile] = File(None) 
+    comprobante: UploadFile = File(...),  # RN-05: toda reserva web exige comprobante
 ):
-    ruta_comprobante = None
-    if comprobante:
-        ruta_comprobante = save_image(comprobante)
-
-    # 2. Armamos el esquema manual que antes FastAPI hacía automático
     reserva_datos = ReservaPublicCreate(
         habitacion_id=habitacion_id,
         fecha_entrada=fecha_entrada,
         fecha_salida=fecha_salida,
-        monto_total=monto_total,
         cliente_nombre=cliente_nombre,
         cliente_email=cliente_email,
         cliente_celular=cliente_celular,
@@ -88,17 +94,93 @@ async def registrar_reserva_publica(
         tipo_documento="CC",
         cliente_documento="0",
         observaciones=observaciones,
-        comprobante_url=ruta_comprobante
     )
-   
-    # 3. Guardamos la reserva en MongoDB
-    nueva_reserva_id = await create_booking_service(reserva_datos, user_id=None)
+
+    reserva = await _crear_reserva_con_comprobante(reserva_datos, comprobante, user_id=None)
     
     return {
         "message": "¡Reserva y comprobante recibidos con éxito!",
-        "reserva_id": nueva_reserva_id,
+        "reserva_id": reserva["id"],
+        "monto_total": reserva["monto_total"],
+        "anticipo": reserva["anticipo"],
+        "noches": reserva["noches"],
         "cliente": cliente_nombre
     }
+
+
+# RESERVA MANUAL DESDE EL PANEL (recepción / admin)
+@router.post("/admin", status_code=status.HTTP_201_CREATED)
+async def registrar_reserva_admin(datos: ReservaAdminCreate, admin_user = Depends(required_admin)):
+    reserva_datos = ReservaPublicCreate(
+        habitacion_id=datos.habitacion_id,
+        fecha_entrada=datos.fecha_entrada,
+        fecha_salida=datos.fecha_salida,
+        cliente_nombre=datos.cliente_nombre,
+        cliente_email=datos.cliente_email,
+        cliente_celular=datos.cliente_celular,
+        tipo_persona="natural",
+        observaciones=datos.observaciones or "Reserva manual desde Panel Admin",
+    )
+
+    reserva = await create_booking_service(
+        reserva_datos,
+        user_id=None,
+        monto_override=datos.monto_total,
+        estado_inicial="confirmada",
+        creado_por=admin_user["email"],
+    )
+
+    return {
+        "message": "Reserva registrada y confirmada",
+        "reserva_id": reserva["id"],
+        "monto_total": reserva["monto_total"],
+        "anticipo": reserva["anticipo"],
+        "noches": reserva["noches"],
+    }
+
+
+# 5.6: los comprobantes ya no son públicos. Solo el admin o el dueño de la reserva los ven.
+@router.get("/{reserva_id}/comprobante")
+async def descargar_comprobante(reserva_id: str, user = Depends(get_current_user)):
+    no_encontrado = HTTPException(status_code=404, detail="Comprobante no encontrado")
+    try:
+        reserva_oid = ObjectId(reserva_id)
+    except InvalidId:
+        raise no_encontrado
+
+    reserva = await db.bookings.find_one(
+        {"_id": reserva_oid},
+        {"cliente_id": 1, "comprobante_archivo": 1, "comprobante_url": 1},
+    )
+    if not reserva:
+        raise no_encontrado
+
+    es_admin = user.get("role") == "admin"
+    es_dueno = reserva.get("cliente_id") is not None and str(reserva.get("cliente_id")) == str(user["_id"])
+    if not (es_admin or es_dueno):
+        # 404 (no 403) para no revelar que la reserva existe.
+        raise no_encontrado
+
+    path = None
+    if reserva.get("comprobante_archivo"):
+        path = private_receipt_path(reserva["comprobante_archivo"])
+    elif reserva.get("comprobante_url"):
+        # Comprobantes antiguos que aún no se han migrado a almacenamiento privado.
+        path = legacy_public_path(reserva["comprobante_url"])
+
+    if path is None:
+        raise no_encontrado
+
+    return FileResponse(
+        path,
+        media_type=media_type_for(path),
+        filename=f"comprobante-{reserva_id}{path.suffix}",
+        content_disposition_type="inline",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 # 🟢 SOLO ADMIN PUEDE CAMBIAR EL ESTADO DE UNA RESERVA (AQUÍ ESTÁ LA CORRECCIÓN)

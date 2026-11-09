@@ -1,14 +1,9 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, Form, status
-from fastapi.concurrency import run_in_threadpool
 from typing import Optional, List
 from backend.db.client import db
-import uuid
-import os
-from backend.core.config import UPLOAD_DIR
-from backend.services.media_service import save_multiple, delete_image
+from backend.services.storage_service import save_public_images, delete_public_file
 from backend.models.room_model import RoomCreate, RoomUpdate
-from backend.dependencies.auth import required_admin, get_current_user
-from pathlib import Path
+from backend.dependencies.auth import required_admin
 from backend.services.room_service import (
     create_room, get_rooms, get_room, update_room, 
     delete_room, create_room_with_images, remove_room_image, add_room_images_to_db,
@@ -83,10 +78,7 @@ async def delete(room_id: str, user=Depends(required_admin)):
          raise HTTPException(status_code=404, detail="Habitación no encontrada")
          
     for image_url in room.get("images", []):
-        try:
-            await run_in_threadpool(delete_image, image_url)
-        except Exception as e:
-            print(f"Advertencia: No se pudo borrar la imagen {image_url}. Error: {e}")
+        await delete_public_file(image_url)
         
     # 🟢 Pasamos el user["email"] para el registro
     await delete_room(room_id, user["email"])
@@ -99,7 +91,7 @@ async def create_new_room_with_images(
     capacity: int = Form(...), description: str = Form(""), active: bool = Form(True),
     type: str = Form(...), num_cuartos: int = Form(1), tipo_camas: str = Form(""),
     amenities: List[str] = Form([]), images: List[UploadFile] = File(...),
-    user = Depends(get_current_user)
+    user = Depends(required_admin)  # 5.2: antes bastaba con cualquier usuario autenticado
 ):
     data = {
         "room_number": room_number, "name": name, "price": price,
@@ -108,9 +100,7 @@ async def create_new_room_with_images(
         "tipo_camas": tipo_camas,
     }
     
-    image_urls = []
-    if images and images[0].filename != '':
-        image_urls = await run_in_threadpool(save_multiple, images)
+    image_urls = await save_public_images(images)
 
     return await create_room_with_images(data=data, images=image_urls, user_email=user["email"])
 
@@ -118,13 +108,13 @@ async def create_new_room_with_images(
 @router.delete("/{room_id}/delete-image")
 async def delete_room_image(room_id: str, url: str, user=Depends(required_admin)):
     await remove_room_image(room_id, url, user["email"])
-    await run_in_threadpool(delete_image, url)
+    await delete_public_file(url)
     return {"message": "Imagen eliminada con éxito"}
 
 # 8. AGREGAR IMÁGENES A HABITACIÓN EXISTENTE
 @router.post("/{room_id}/add-images")
 async def add_images(room_id: str, files: List[UploadFile] = File(...), user=Depends(required_admin)):
-    new_urls = await run_in_threadpool(save_multiple, files) 
+    new_urls = await save_public_images(files)
     # 🟢 Pasamos el user["email"] para el registro
     exito = await add_room_images_to_db(room_id, new_urls, user["email"])
     

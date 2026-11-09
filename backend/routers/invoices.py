@@ -6,8 +6,12 @@ from backend.dependencies.auth import required_admin
 from backend.models.invoice_models import InvoiceCreate, AddExtraCharge, InvoiceSyncUpdate
 from backend.schemas.invoice_schema import invoice_schema
 
-router = APIRouter(prefix="/invoices", tags=["Invoices"])
-dependencies= [Depends (required_admin)]
+# 5.1: la dependencia DEBE ir dentro de APIRouter(...) para aplicarse a todas las rutas.
+router = APIRouter(
+    prefix="/invoices",
+    tags=["Invoices"],
+    dependencies=[Depends(required_admin)],
+)
 
 # ==========================================
 # RUTAS

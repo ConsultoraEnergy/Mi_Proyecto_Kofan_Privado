@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -30,7 +30,8 @@ class ReservaBase(BaseModel):
     habitacion_id: str
     fecha_entrada: date
     fecha_salida: date
-    monto_total: float
+    # 5.3: lo calcula SIEMPRE el backend (pricing_service); nunca se toma del cliente.
+    monto_total: Optional[float] = None
     
     # 🟢 Toda reserva nace con estas listas vacías por defecto
     acompanantes: List[AcompananteSchema] = [] 
@@ -38,7 +39,8 @@ class ReservaBase(BaseModel):
     
     observaciones: Optional[str] = None
     estado: EstadoReserva = EstadoReserva.PENDIENTE
-    comprobante_url: Optional[str] = None
+    # 5.6: clave interna del comprobante en almacenamiento privado (no es una URL pública).
+    comprobante_archivo: Optional[str] = None
     
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -60,6 +62,18 @@ class ReservaPublicCreate(ReservaBase):
 
 class ReservaCreate(ReservaPublicCreate):
     pass 
+
+# 4b. RESERVA MANUAL DESDE EL PANEL (solo admin, JSON)
+class ReservaAdminCreate(BaseModel):
+    habitacion_id: str
+    fecha_entrada: date
+    fecha_salida: date
+    cliente_nombre: str = Field(min_length=1)
+    cliente_email: EmailStr
+    cliente_celular: str = ""
+    observaciones: Optional[str] = None
+    # Opcional: el admin puede fijar un precio negociado. Si no se envía, se calcula.
+    monto_total: Optional[float] = Field(default=None, gt=0)
 
 # 5. ESQUEMA DE RESPUESTA (Lo que se envía al frontend)
 class ReservaResponse(ReservaBase):

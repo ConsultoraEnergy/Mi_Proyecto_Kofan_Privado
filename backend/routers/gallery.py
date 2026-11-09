@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, status
 from typing import Optional
 from backend.services.gallery_service import get_all_photos, upload_photo, delete_photo
-from backend.dependencies.auth import required_admin, get_current_user
+from backend.dependencies.auth import required_admin
 
 router = APIRouter(prefix="/gallery", tags=["Gallery"])
 
@@ -10,21 +10,15 @@ async def get_gallery(categoria: Optional[str] = None):
     # 🟢 1. DELEGAMOS LA BÚSQUEDA AL SERVICIO
     return await get_all_photos(categoria)
 
-@router.post("/", dependencies=[Depends(required_admin)])
+@router.post("/")
 async def upload_gallery_image(
     file: UploadFile = File(...),
     categoria: str = Form("general"),
-    user = Depends(get_current_user) # Extraemos el usuario para saber quién subió la foto
+    user = Depends(required_admin)  # Protege la ruta y nos dice quién subió la foto
 ):
-    try:
-        # 🟢 2. DELEGAMOS LA SUBIDA Y CREACIÓN AL SERVICIO
-        # Nota: Asumo que el título inicial será el nombre del archivo
-        return await upload_photo(file, titulo=file.filename, categoria=categoria, uploader_email=user["email"])
-    except Exception as e:        
-        raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No se pudo subir la imagen: " + str(e)
-            )
+    # El servicio valida el archivo y responde 400/413 con un mensaje claro si no es válido.
+    # Nota: el título inicial será el nombre del archivo
+    return await upload_photo(file, titulo=file.filename, categoria=categoria, uploader_email=user["email"])
             
 @router.delete("/{image_id}", dependencies=[Depends(required_admin)])
 async def delete_gallery_image(image_id: str):

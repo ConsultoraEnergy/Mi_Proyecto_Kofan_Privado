@@ -1,7 +1,16 @@
 from backend.db.client import db
 from backend.core.security import hash_password
 from bson import ObjectId
+from bson.errors import InvalidId
 from pymongo import ReturnDocument
+
+
+def _to_object_id(value):
+    """Convierte a ObjectId; devuelve None si el valor no es un id válido (evita errores 500)."""
+    try:
+        return ObjectId(str(value))
+    except (InvalidId, TypeError):
+        return None
 
 async def create_user_service(user_data):
     if not isinstance(user_data, dict):
@@ -38,8 +47,10 @@ async def get_user_by_document(doc: str):
     return await db.users.find_one({"number_document": doc})
 
 async def get_user_by_id(user_id: str):
-    # 🟢 CAMBIO: db.clients -> db.users
-    return await db.users.find_one({"_id": ObjectId(user_id)})
+    oid = _to_object_id(user_id)
+    if oid is None:
+        return None
+    return await db.users.find_one({"_id": oid})
 
 async def deactivate_user_service(user_id: str):
     # 🟢 CAMBIO: db.clients -> db.users
@@ -77,23 +88,21 @@ async def get_all_users_service(skip: int = 0, limit: int = 50):
 
 async def link_guest_bookings_to_user(email: str, user_id: str):
     """
-    Busca todas las reservas hechas con este correo que no tengan 
-    un usuario asignado y las vincula al nuevo user_id.
-    """
-   
-    email_limpio = email.strip().lower()
+    Vincula al usuario las reservas de invitado hechas con su correo.
 
-    filtro_correo = {"$regex": f"^{email_limpio}$", "$options": "i"}
+    ⚠️ SOLO debe llamarse cuando el usuario haya VERIFICADO su correo (5.5).
+    Hoy no existe verificación de email, por lo que el registro ya no la invoca:
+    de lo contrario cualquiera podría registrarse con un correo ajeno y apropiarse
+    de las reservas (fechas, montos, comprobantes) de otra persona.
+    Se compara por igualdad exacta (no regex) sobre el correo normalizado.
+    """
+    email_limpio = email.strip().lower()
 
     result = await db.bookings.update_many(
         {
-            "cliente_email": filtro_correo,  # 🟢 Usamos el campo correcto de tu BD
-            "cliente_id": {"$in": [None, ""]} # 🟢 Usamos el campo correcto de tu BD
+            "cliente_email": email_limpio,
+            "cliente_id": {"$in": [None, ""]},
         },
-        {
-            "$set": {
-                "cliente_id": ObjectId(user_id)        # 🟢 Inyectamos el nuevo ID aquí
-            }
-        }
+        {"$set": {"cliente_id": ObjectId(user_id)}},
     )
     return result.modified_count
