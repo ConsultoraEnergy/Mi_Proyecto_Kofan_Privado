@@ -2,7 +2,7 @@
 /** Muestra las primeras fotos de la galería; no se renderiza si la galería está vacía. */
 import { onMounted, ref } from "vue";
 import { listGallery } from "@/api/content";
-import { assetUrl } from "@/config/env";
+import { fallbackToFullImage, thumbUrl } from "@/config/env";
 import { useConfigStore } from "@/stores/config";
 import SectionHeading from "@/components/home/SectionHeading.vue";
 
@@ -33,10 +33,10 @@ onMounted(async () => {
       <div class="preview-grid">
         <RouterLink v-for="photo in photos" :key="photo.id" :to="{ name: 'gallery' }" class="preview-item">
           <img
-            :src="assetUrl(photo.url)"
+            :src="thumbUrl(photo.url)"
             :alt="photo.title || configStore.hotelName"
             loading="lazy"
-            @error="$event.target.style.display = 'none'"
+            @error="fallbackToFullImage($event, photo.url) || ($event.target.style.display = 'none')"
           />
         </RouterLink>
         <RouterLink :to="{ name: 'gallery' }" class="preview-item preview-item-cta">

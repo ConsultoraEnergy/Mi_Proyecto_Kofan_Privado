@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetUrl } from "@/config/env";
+import { assetUrl, fallbackToFullImage, thumbUrl } from "@/config/env";
 import {
   formatDate,
   formatDateTime,
@@ -36,6 +36,24 @@ describe("config/env", () => {
     expect(assetUrl("https://cdn.example.com/a.webp")).toBe("https://cdn.example.com/a.webp");
     expect(assetUrl("/static/uploads/a.webp")).toBe("/static/uploads/a.webp");
     expect(assetUrl("")).toBe("");
+  });
+
+  it("thumbUrl apunta a la miniatura WebP solo para fotos subidas", () => {
+    const id = "0123456789abcdef0123456789abcdef";
+    expect(thumbUrl(`https://cdn.example.com/kawari/public/${id}.jpg`)).toBe(
+      `https://cdn.example.com/kawari/public/thumbs/${id}.webp`,
+    );
+    expect(thumbUrl(`/static/uploads/${id}.png`)).toBe(`/static/uploads/thumbs/${id}.webp`);
+    expect(thumbUrl("/assets/placeholder.jpg")).toBe("/assets/placeholder.jpg");
+    expect(thumbUrl("")).toBe("");
+  });
+
+  it("fallbackToFullImage cambia a la original una sola vez", () => {
+    const img = document.createElement("img");
+    img.src = "https://cdn.example.com/thumbs/x.webp";
+    expect(fallbackToFullImage({ target: img }, "https://cdn.example.com/x.jpg")).toBe(true);
+    expect(img.src).toBe("https://cdn.example.com/x.jpg");
+    expect(fallbackToFullImage({ target: img }, "https://cdn.example.com/x.jpg")).toBe(false);
   });
 });
 

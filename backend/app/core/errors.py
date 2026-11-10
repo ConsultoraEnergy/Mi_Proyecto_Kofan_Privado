@@ -48,6 +48,11 @@ class PayloadTooLarge(DomainError):
     code = "payload_too_large"
 
 
+class ServiceUnavailable(DomainError):
+    status_code = 503
+    code = "service_unavailable"
+
+
 async def _domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
     headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
     return JSONResponse(

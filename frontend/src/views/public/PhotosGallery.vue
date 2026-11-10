@@ -51,11 +51,11 @@
           <template v-for="foto in fotos">
             <div v-if="foto && foto.url" :key="foto.id" class="masonry-item" @click="abrirLightbox(foto)">
               <img
-                :src="assetUrl(foto.url)"
+                :src="thumbUrl(foto.url)"
                 :alt="foto.title || `Momento ${configStore.hotelName}`"
                 class="img-fluid rounded-4 shadow-sm"
                 loading="lazy"
-                @error="$event.target.style.display = 'none'"
+                @error="fallbackToFullImage($event, foto.url) || ($event.target.style.display = 'none')"
               />
             </div>
           </template>
@@ -103,7 +103,7 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from "vue";
 import { listGallery } from "@/api/content";
-import { assetUrl } from "@/config/env";
+import { assetUrl, fallbackToFullImage, thumbUrl } from "@/config/env";
 import { useConfigStore } from "@/stores/config";
 
 const configStore = useConfigStore();

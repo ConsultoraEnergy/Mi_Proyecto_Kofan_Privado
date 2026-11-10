@@ -1,6 +1,6 @@
 <script setup>
 /** Fotos ya guardadas de una habitación: elegir la principal o borrar una. */
-import { assetUrl } from "@/config/env";
+import { fallbackToFullImage, thumbUrl } from "@/config/env";
 
 defineProps({
   images: { type: Array, required: true },
@@ -31,7 +31,13 @@ defineEmits(["set-main", "remove"]);
             Principal
           </span>
 
-          <img :src="assetUrl(url)" class="rounded object-fit-cover w-100" style="height: 90px" alt="" />
+          <img
+            :src="thumbUrl(url)"
+            class="rounded object-fit-cover w-100"
+            style="height: 90px"
+            alt=""
+            @error="fallbackToFullImage($event, url)"
+          />
 
           <button
             type="button"

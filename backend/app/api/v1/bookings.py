@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from backend.app.api.deps import CurrentUser, OptionalUser, require_permission
 from backend.app.core.permissions import Permission
@@ -15,7 +15,6 @@ from backend.app.modules.bookings.schemas import (
     StatusChangeIn,
     WebBookingForm,
 )
-from backend.app.modules.media import storage
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -83,13 +82,15 @@ async def change_status(
 @router.get("/{booking_id}/receipt")
 async def download_receipt(booking_id: str, user: CurrentUser):
     """Comprobante privado (5.6): solo el dueño de la reserva o el personal autorizado."""
-    path, code = await service.receipt_file(user, booking_id)
-    return FileResponse(
-        path,
-        media_type=storage.media_type_for(path),
-        filename=f"comprobante-{code}{path.suffix}",
-        content_disposition_type="inline",
-        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    receipt, code = await service.receipt_file(user, booking_id)
+    return Response(
+        content=receipt.content,
+        media_type=receipt.content_type,
+        headers={
+            "Content-Disposition": f'inline; filename="comprobante-{code}.{receipt.extension}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

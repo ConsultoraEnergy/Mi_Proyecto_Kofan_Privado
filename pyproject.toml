@@ -18,6 +18,7 @@ dependencies = [
     "apscheduler>=3.11,<4",
     "tzdata>=2025.2",
     "sentry-sdk[fastapi]>=2.20,<3",
+    "boto3>=1.40,<2",
 ]
 
 [dependency-groups]
@@ -29,6 +30,7 @@ dev = [
     "ruff>=0.14",
     "mypy>=1.18",
     "pre-commit>=4.3",
+    "moto[s3]>=5.1",
 ]
 
 [tool.uv]

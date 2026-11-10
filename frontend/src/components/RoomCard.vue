@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useReservaStore } from "@/stores/reserva";
-import { assetUrl } from "@/config/env";
+import { assetUrl, fallbackToFullImage, thumbUrl } from "@/config/env";
 import { formatMoney } from "@/utils/format";
 import placeholderImg from "@/img/habitacion1.jpg";
 
@@ -91,7 +91,13 @@ defineExpose({ abrirDetalles });
       @mouseleave="isHovered = false"
     >
       <div class="image-square position-relative bg-dark shadow-sm">
-        <img :src="imagenes[0]" class="w-100 h-100 foto-cover" :alt="habitacion.name" />
+        <img
+          :src="thumbUrl(imagenes[0])"
+          class="w-100 h-100 foto-cover"
+          :alt="habitacion.name"
+          loading="lazy"
+          @error="fallbackToFullImage($event, imagenes[0])"
+        />
 
         <div
           class="hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"

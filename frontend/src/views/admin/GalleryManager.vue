@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import Swal from "sweetalert2";
 import { errorMessage } from "@/api/apiClient";
 import { listGallery, uploadGalleryImage, deleteGalleryImage } from "@/api/content";
-import { assetUrl } from "@/config/env";
+import { fallbackToFullImage, thumbUrl } from "@/config/env";
 import ImageUploader from "@/components/ImageUploader.vue";
 
 const fotos = ref([]);
@@ -230,11 +230,11 @@ onMounted(() => cargarFotos());
       <div v-for="foto in fotos" :key="foto.id" class="col-12 col-sm-6 col-md-4 col-lg-3">
         <div class="gallery-item position-relative mb-2 h-100">
           <img
-            :src="assetUrl(foto.url)"
+            :src="thumbUrl(foto.url)"
             :alt="foto.title || etiquetaCategoria(foto.category)"
             class="img-fluid rounded-4 shadow-sm w-100 object-fit-cover"
             style="height: 220px"
-            @error="onImagenError"
+            @error="fallbackToFullImage($event, foto.url) || onImagenError($event)"
           />
 
           <div

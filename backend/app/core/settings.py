@@ -8,9 +8,10 @@ obligatorios: si faltan, la aplicación no arranca.
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -63,6 +64,27 @@ class Settings(BaseSettings):
     private_upload_dir: Path = BACKEND_DIR / "private_uploads"
     max_image_size_mb: int = Field(default=8, ge=1)
     max_receipt_size_mb: int = Field(default=5, ge=1)
+    thumbnail_max_px: int = Field(default=800, ge=100, le=2000)
+
+    # --- Object storage (S3 compatible: DigitalOcean Spaces, Cloudflare R2, AWS S3) ---
+    # local = disco (desarrollo y pruebas) | s3 = bucket. Se aceptan también los nombres DO_* de DigitalOcean.
+    storage_backend: Literal["local", "s3"] = "local"
+    s3_endpoint_url: str | None = Field(
+        default=None, validation_alias=AliasChoices("S3_ENDPOINT_URL", "DO_S3_ENDPOINT_URL")
+    )
+    s3_region: str = Field(default="us-east-1", validation_alias=AliasChoices("S3_REGION", "DO_AWS_REGION"))
+    s3_bucket: str | None = Field(default=None, validation_alias=AliasChoices("S3_BUCKET", "DO_AWS_BUCKET_NAME"))
+    s3_access_key_id: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("S3_ACCESS_KEY_ID", "DO_AWS_ACCESS_KEY_ID")
+    )
+    s3_secret_access_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("S3_SECRET_ACCESS_KEY", "DO_AWS_SECRET_ACCESS_KEY")
+    )
+    # Carpeta raíz dentro del bucket (permite compartir el bucket con otros proyectos).
+    s3_key_prefix: str = "kawari"
+    # URL pública de las fotos, idealmente el CDN: https://<bucket>.<region>.cdn.digitaloceanspaces.com
+    # Si se omite se usa el endpoint de origen del bucket (sin CDN).
+    s3_public_base_url: str | None = None
 
     # --- Email ---
     email_backend: Literal["console", "smtp"] = "console"
@@ -108,10 +130,34 @@ class Settings(BaseSettings):
     def _strip_trailing_slash(cls, value: str) -> str:
         return value.rstrip("/")
 
+    @field_validator("s3_key_prefix")
+    @classmethod
+    def _normalize_prefix(cls, value: str) -> str:
+        value = value.strip("/")
+        if value and not all(part.replace("-", "").replace("_", "").isalnum() for part in value.split("/")):
+            raise ValueError("S3_KEY_PREFIX solo admite letras, números, guiones y '/'.")
+        return value
+
     @model_validator(mode="after")
     def _smtp_requires_host(self) -> "Settings":
         if self.email_backend == "smtp" and not self.smtp_host:
             raise ValueError("EMAIL_BACKEND=smtp requiere SMTP_HOST.")
+        return self
+
+    @model_validator(mode="after")
+    def _s3_requires_credentials(self) -> "Settings":
+        if self.storage_backend == "s3":
+            missing = [
+                name
+                for name, value in (
+                    ("S3_BUCKET", self.s3_bucket),
+                    ("S3_ACCESS_KEY_ID", self.s3_access_key_id),
+                    ("S3_SECRET_ACCESS_KEY", self.s3_secret_access_key),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(f"STORAGE_BACKEND=s3 requiere: {', '.join(missing)}.")
         return self
 
     @property
@@ -133,6 +179,29 @@ class Settings(BaseSettings):
     @property
     def tz(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    @property
+    def s3_client_endpoint(self) -> str | None:
+        """Endpoint regional para boto3. Acepta también el "Origin Endpoint" de DigitalOcean
+        (https://<bucket>.<region>.digitaloceanspaces.com) quitándole el nombre del bucket."""
+        if not self.s3_endpoint_url:
+            return None
+        parts = urlsplit(self.s3_endpoint_url.rstrip("/"))
+        host = parts.hostname or ""
+        if self.s3_bucket and host.startswith(f"{self.s3_bucket}."):
+            host = host[len(self.s3_bucket) + 1 :]
+        return f"{parts.scheme or 'https'}://{host}"
+
+    @property
+    def s3_public_base(self) -> str:
+        """Origen público de las fotos (CDN si se configuró), sin barra final."""
+        if self.s3_public_base_url:
+            return self.s3_public_base_url.rstrip("/")
+        endpoint = self.s3_client_endpoint
+        if endpoint:
+            parts = urlsplit(endpoint)
+            return f"{parts.scheme}://{self.s3_bucket}.{parts.hostname}"
+        return f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
 
 
 @lru_cache

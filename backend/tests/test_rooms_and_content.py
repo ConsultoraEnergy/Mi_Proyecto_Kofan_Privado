@@ -81,10 +81,13 @@ async def test_imagenes_de_habitacion(api, admin_headers, room, storage_dirs):
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(body["images"]) == 2 and body["main_image"] == body["images"][0]
+    public, thumbs = storage_dirs["public"], storage_dirs["public"] / "thumbs"
+    assert len(list(thumbs.glob("*.webp"))) == 2  # una miniatura WebP por foto
 
     removed = await api.delete(f"/rooms/{room['_id']}/images", params={"url": body["images"][0]}, headers=admin_headers)
     assert removed.json()["main_image"] == body["images"][1]
-    assert len(list(storage_dirs["public"].iterdir())) == 1
+    assert len([p for p in public.iterdir() if p.is_file()]) == 1
+    assert len(list(thumbs.iterdir())) == 1  # la miniatura se borra con la foto
 
     ajena = await api.delete(
         f"/rooms/{room['_id']}/images", params={"url": "/static/uploads/x.png"}, headers=admin_headers

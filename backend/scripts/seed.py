@@ -75,7 +75,7 @@ async def seed_database(db, demo_rooms: bool = False) -> None:
             {"$setOnInsert": {**room_type, "is_active": True, "created_at": now, "updated_at": now}},
             upsert=True,
         )
-    print(f"✓ Tipos de habitación: {', '.join(t['code'] for t in ROOM_TYPES)}")
+    print(f"✓ Tipos de habitación: {', '.join(str(t['code']) for t in ROOM_TYPES)}")
 
     email = os.getenv("SEED_ADMIN_EMAIL", "admin@kawari.local").strip().lower()
     if await db.users.find_one({"email": email}):

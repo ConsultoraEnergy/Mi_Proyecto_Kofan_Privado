@@ -1,33 +1,44 @@
 """
-Almacenamiento de archivos (interfaz única, 5.6 / 5.11).
+Almacenamiento de archivos (interfaz única, 5.6 / 5.11 / Fase 3).
 
-- PÚBLICOS (fotos de habitaciones, galería, logo): `settings.upload_dir`, servidos en /static/uploads.
-  Solo imágenes JPEG/PNG/WebP reales, re-codificadas (sin EXIF/GPS ni contenido incrustado).
-- PRIVADOS (comprobantes de pago): `settings.private_upload_dir`, nunca servidos como estáticos.
+Dos tipos de archivo:
+- PÚBLICOS (fotos de habitaciones, galería, logo): solo imágenes JPEG/PNG/WebP reales, re-codificadas
+  (sin EXIF/GPS ni contenido incrustado). Cada foto lleva una miniatura WebP en `thumbs/<uuid>.webp`.
+- PRIVADOS (comprobantes de pago): nunca accesibles por URL pública; se entregan por un endpoint
+  autenticado que lee el archivo desde aquí.
+
+Dos backends, elegidos con STORAGE_BACKEND:
+- `local`: disco (`upload_dir` servido en /static/uploads; `private_upload_dir` no servido).
+- `s3`:    bucket S3 compatible (DigitalOcean Spaces / R2 / S3) bajo `<S3_KEY_PREFIX>/`:
+             public/<uuid>.<ext>          ACL public-read, caché inmutable (sirve el CDN)
+             public/thumbs/<uuid>.webp    ídem
+             receipts/<uuid>.<ext>        ACL private, solo la API puede leerlos
 
 El tipo se detecta por el contenido; la extensión se deriva del tipo; el tamaño se limita leyendo
 como máximo N+1 bytes; los nombres son uuid4().hex + extensión de una lista blanca.
-
-Fase 3: reemplazar la implementación local por object storage (R2/S3) manteniendo estas funciones.
 """
 
 import logging
 import re
 import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from typing import Protocol
 
 from fastapi import UploadFile
 from fastapi.concurrency import run_in_threadpool
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from backend.app.core.errors import PayloadTooLarge, ValidationFailed
-from backend.app.core.settings import get_settings
+from backend.app.core.errors import PayloadTooLarge, ServiceUnavailable, ValidationFailed
+from backend.app.core.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
 PUBLIC_URL_PREFIX = "/static/uploads/"
+THUMBS_DIR = "thumbs"
+PUBLIC_CACHE_CONTROL = "public, max-age=31536000, immutable"  # los nombres nunca se reutilizan
 
 _IMAGE_FORMATS = {
     "JPEG": ("jpg", "image/jpeg"),
@@ -49,6 +60,20 @@ class StoredFile:
     content_type: str
 
 
+@dataclass(frozen=True)
+class ReceiptContent:
+    content: bytes
+    content_type: str
+    extension: str
+
+
+@dataclass(frozen=True)
+class _ProcessedImage:
+    content: bytes
+    ext: str
+    thumbnail: bytes  # WebP
+
+
 # ---------------------------------------------------------------------------
 # Validación (síncrona; se ejecuta en un hilo aparte)
 # ---------------------------------------------------------------------------
@@ -68,7 +93,7 @@ def _read_limited(file: UploadFile, max_mb: int) -> bytes:
 _INVALID_IMAGE = "Archivo no válido. Solo se permiten imágenes JPEG, PNG o WebP."
 
 
-def _process_image(data: bytes) -> tuple[bytes, str]:
+def _reencode(data: bytes, *, thumbnail_px: int | None) -> tuple[bytes, str, bytes | None]:
     try:
         with Image.open(BytesIO(data)) as probe:
             fmt = probe.format
@@ -92,11 +117,27 @@ def _process_image(data: bytes) -> tuple[bytes, str]:
                 img.save(out, "PNG", **save_kwargs)
             else:
                 img.save(out, "WEBP", quality=88, **save_kwargs)
+
+            thumb_bytes = None
+            if thumbnail_px:
+                thumb = img.copy()
+                if thumb.mode not in ("RGB", "RGBA"):
+                    thumb = thumb.convert("RGBA" if "A" in thumb.getbands() else "RGB")
+                thumb.thumbnail((thumbnail_px, thumbnail_px), Image.Resampling.LANCZOS)
+                thumb_out = BytesIO()
+                thumb.save(thumb_out, "WEBP", quality=80, method=4, **save_kwargs)
+                thumb_bytes = thumb_out.getvalue()
     except ValidationFailed:
         raise
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError, ValueError):
         raise ValidationFailed(_INVALID_IMAGE) from None
-    return out.getvalue(), _IMAGE_FORMATS[fmt][0]
+    return out.getvalue(), _IMAGE_FORMATS[fmt][0], thumb_bytes
+
+
+def _process_image(data: bytes, thumbnail_px: int) -> _ProcessedImage:
+    content, ext, thumb = _reencode(data, thumbnail_px=thumbnail_px)
+    assert thumb is not None  # noqa: S101 - siempre se pide miniatura
+    return _ProcessedImage(content=content, ext=ext, thumbnail=thumb)
 
 
 def _process_receipt(data: bytes) -> tuple[bytes, str]:
@@ -105,55 +146,244 @@ def _process_receipt(data: bytes) -> tuple[bytes, str]:
             raise ValidationFailed("El PDF contiene elementos no permitidos (scripts o archivos incrustados).")
         return data, "pdf"
     try:
-        return _process_image(data)
+        content, ext, _ = _reencode(data, thumbnail_px=None)
     except ValidationFailed:
         raise ValidationFailed("Comprobante no válido. Solo se permiten imágenes JPEG, PNG, WebP o PDF.") from None
+    return content, ext
 
 
-def _write(directory: Path, content: bytes, ext: str) -> str:
-    directory.mkdir(parents=True, exist_ok=True)
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    (directory / filename).write_bytes(content)
-    return filename
+def _valid_name(name: str | None) -> bool:
+    return bool(name) and bool(_STORED_NAME_RE.match(name or ""))
 
 
-def _safe_path(directory: Path, filename: str | None) -> Path | None:
-    """Ruta dentro de `directory`, o None si el nombre no lo generó este servicio (anti path traversal)."""
-    if not filename or not _STORED_NAME_RE.match(filename):
-        return None
-    base = directory.resolve()
-    path = (base / filename).resolve()
-    return path if path.parent == base else None
+def _thumb_name(name: str) -> str:
+    return f"{THUMBS_DIR}/{name.rsplit('.', 1)[0]}.webp"
 
 
-def _unlink(path: Path | None) -> bool:
-    if path is None or not path.exists():
-        return False
-    try:
-        path.unlink()
+# ---------------------------------------------------------------------------
+# Backends
+# ---------------------------------------------------------------------------
+
+
+class _Backend(Protocol):
+    def public_url(self, name: str) -> str: ...
+    def public_name(self, url: str) -> str | None: ...
+    def put_public(self, name: str, content: bytes, content_type: str) -> None: ...
+    def delete_public(self, name: str) -> bool: ...
+    def put_private(self, name: str, content: bytes, content_type: str) -> None: ...
+    def get_private(self, name: str) -> bytes | None: ...
+    def delete_private(self, name: str) -> bool: ...
+
+
+class _LocalBackend:
+    def __init__(self, settings: Settings):
+        self.public_dir = settings.upload_dir
+        self.private_dir = settings.private_upload_dir
+
+    @staticmethod
+    def _safe_path(directory: Path, name: str) -> Path | None:
+        """Ruta dentro de `directory` (anti path traversal); `name` ya pasó por `_valid_name`."""
+        base = directory.resolve()
+        path = (base / name).resolve()
+        return path if base in path.parents else None
+
+    @staticmethod
+    def _write(path: Path | None, content: bytes) -> None:
+        if path is None:  # pragma: no cover - los nombres los genera este módulo
+            raise ValidationFailed("Nombre de archivo no válido.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    @staticmethod
+    def _unlink(path: Path | None) -> bool:
+        if path is None or not path.exists():
+            return False
+        try:
+            path.unlink()
+            return True
+        except OSError as exc:
+            logger.warning("No se pudo eliminar %s: %s", path.name, exc)
+            return False
+
+    def public_url(self, name: str) -> str:
+        return PUBLIC_URL_PREFIX + name
+
+    def public_name(self, url: str) -> str | None:
+        return url[len(PUBLIC_URL_PREFIX) :] if url.startswith(PUBLIC_URL_PREFIX) else None
+
+    def put_public(self, name: str, content: bytes, content_type: str) -> None:
+        self._write(self._safe_path(self.public_dir, name), content)
+
+    def delete_public(self, name: str) -> bool:
+        return self._unlink(self._safe_path(self.public_dir, name))
+
+    def put_private(self, name: str, content: bytes, content_type: str) -> None:
+        self._write(self._safe_path(self.private_dir, name), content)
+
+    def get_private(self, name: str) -> bytes | None:
+        path = self._safe_path(self.private_dir, name)
+        return path.read_bytes() if path is not None and path.is_file() else None
+
+    def delete_private(self, name: str) -> bool:
+        return self._unlink(self._safe_path(self.private_dir, name))
+
+
+class _S3Backend:
+    def __init__(self, settings: Settings):
+        import boto3
+        from botocore.config import Config
+
+        assert settings.s3_access_key_id and settings.s3_secret_access_key  # noqa: S101 - validado en Settings
+        self.bucket = settings.s3_bucket
+        prefix = settings.s3_key_prefix
+        self.public_prefix = f"{prefix}/public/" if prefix else "public/"
+        self.private_prefix = f"{prefix}/receipts/" if prefix else "receipts/"
+        self.public_base = f"{settings.s3_public_base}/{self.public_prefix}"
+        self.client = boto3.client(
+            "s3",
+            endpoint_url=settings.s3_client_endpoint,
+            region_name=settings.s3_region,
+            aws_access_key_id=settings.s3_access_key_id.get_secret_value(),
+            aws_secret_access_key=settings.s3_secret_access_key.get_secret_value(),
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "virtual"},
+                retries={"max_attempts": 3, "mode": "standard"},
+                connect_timeout=5,
+                read_timeout=30,
+            ),
+        )
+
+    def _call(self, operation: str, **kwargs):
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        try:
+            return getattr(self.client, operation)(Bucket=self.bucket, **kwargs)
+        except ClientError as exc:
+            if exc.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                return None
+            logger.error("Error de almacenamiento en %s(%s): %s", operation, kwargs.get("Key"), exc)
+            raise ServiceUnavailable("El almacenamiento de archivos no está disponible. Intenta más tarde.") from exc
+        except BotoCoreError as exc:
+            logger.error("Error de conexión con el almacenamiento en %s: %s", operation, exc)
+            raise ServiceUnavailable("El almacenamiento de archivos no está disponible. Intenta más tarde.") from exc
+
+    def public_url(self, name: str) -> str:
+        return self.public_base + name
+
+    def public_name(self, url: str) -> str | None:
+        return url[len(self.public_base) :] if url.startswith(self.public_base) else None
+
+    def put_public(self, name: str, content: bytes, content_type: str) -> None:
+        self._call(
+            "put_object",
+            Key=self.public_prefix + name,
+            Body=content,
+            ContentType=content_type,
+            ACL="public-read",
+            CacheControl=PUBLIC_CACHE_CONTROL,
+        )
+
+    def delete_public(self, name: str) -> bool:
+        self._call("delete_object", Key=self.public_prefix + name)
         return True
-    except OSError as exc:
-        logger.warning("No se pudo eliminar %s: %s", path.name, exc)
-        return False
+
+    def put_private(self, name: str, content: bytes, content_type: str) -> None:
+        self._call(
+            "put_object",
+            Key=self.private_prefix + name,
+            Body=content,
+            ContentType=content_type,
+            ACL="private",
+            CacheControl="private, no-store",
+        )
+
+    def get_private(self, name: str) -> bytes | None:
+        response = self._call("get_object", Key=self.private_prefix + name)
+        return response["Body"].read() if response else None
+
+    def delete_private(self, name: str) -> bool:
+        self._call("delete_object", Key=self.private_prefix + name)
+        return True
+
+
+@lru_cache(maxsize=4)
+def _backend_for(settings_id: int, kind: str) -> _Backend:
+    settings = get_settings()
+    return _S3Backend(settings) if kind == "s3" else _LocalBackend(settings)
+
+
+def _backend() -> _Backend:
+    settings = get_settings()
+    if settings.storage_backend == "s3":
+        return _backend_for(id(settings), "s3")
+    return _LocalBackend(settings)  # barato; respeta cambios de directorio en pruebas
+
+
+def reset_backend_cache() -> None:
+    """Para pruebas: obliga a crear de nuevo el cliente S3."""
+    _backend_for.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# Operaciones síncronas (en hilo aparte)
+# ---------------------------------------------------------------------------
 
 
 def _save_public_images_sync(files: list[UploadFile]) -> list[str]:
     settings = get_settings()
+    backend = _backend()
     # Se valida todo antes de escribir: si una imagen falla no quedan archivos huérfanos.
-    processed = [_process_image(_read_limited(f, settings.max_image_size_mb)) for f in files]
-    return [PUBLIC_URL_PREFIX + _write(settings.upload_dir, content, ext) for content, ext in processed]
+    processed = [_process_image(_read_limited(f, settings.max_image_size_mb), settings.thumbnail_max_px) for f in files]
+    written: list[str] = []
+    try:
+        for image in processed:
+            name = f"{uuid.uuid4().hex}.{image.ext}"
+            backend.put_public(name, image.content, MEDIA_TYPES[image.ext])
+            written.append(name)
+            backend.put_public(_thumb_name(name), image.thumbnail, "image/webp")
+    except Exception:
+        for name in written:
+            _delete_public_sync(backend, name)
+        raise
+    return [backend.public_url(name) for name in written]
+
+
+def _delete_public_sync(backend: _Backend, name: str) -> bool:
+    deleted = backend.delete_public(name)
+    backend.delete_public(_thumb_name(name))
+    return deleted
+
+
+def _delete_public_url_sync(url: str | None) -> bool:
+    if not url:
+        return False
+    backend = _backend()
+    name = backend.public_name(url)
+    if name is None and url.startswith(PUBLIC_URL_PREFIX):
+        # Foto guardada en disco antes de pasar a S3.
+        backend = _LocalBackend(get_settings())
+        name = backend.public_name(url)
+    if not _valid_name(name):
+        return False
+    assert name is not None  # noqa: S101
+    return _delete_public_sync(backend, name)
 
 
 def _save_receipt_sync(file: UploadFile) -> StoredFile:
     settings = get_settings()
     content, ext = _process_receipt(_read_limited(file, settings.max_receipt_size_mb))
-    return StoredFile(key=_write(settings.private_upload_dir, content, ext), content_type=MEDIA_TYPES[ext])
+    name = f"{uuid.uuid4().hex}.{ext}"
+    _backend().put_private(name, content, MEDIA_TYPES[ext])
+    return StoredFile(key=name, content_type=MEDIA_TYPES[ext])
 
 
-def _public_path(url: str | None) -> Path | None:
-    if not url or not url.startswith(PUBLIC_URL_PREFIX):
+def _read_receipt_sync(key: str) -> ReceiptContent | None:
+    content = _backend().get_private(key)
+    if content is None:
         return None
-    return _safe_path(get_settings().upload_dir, url[len(PUBLIC_URL_PREFIX) :])
+    ext = key.rsplit(".", 1)[-1]
+    return ReceiptContent(content=content, content_type=MEDIA_TYPES[ext], extension=ext)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +392,7 @@ def _public_path(url: str | None) -> Path | None:
 
 
 async def save_public_image(file: UploadFile) -> str:
-    """Guarda una imagen pública y devuelve su URL relativa (/static/uploads/...)."""
+    """Guarda una imagen pública (más su miniatura) y devuelve su URL."""
     return (await run_in_threadpool(_save_public_images_sync, [file]))[0]
 
 
@@ -174,7 +404,8 @@ async def save_public_images(files: list[UploadFile]) -> list[str]:
 
 
 async def delete_public_file(url: str | None) -> bool:
-    return await run_in_threadpool(_unlink, _public_path(url))
+    """Elimina una foto pública y su miniatura. Ignora URLs que no generó este servicio."""
+    return await run_in_threadpool(_delete_public_url_sync, url)
 
 
 async def save_private_receipt(file: UploadFile) -> StoredFile:
@@ -182,13 +413,14 @@ async def save_private_receipt(file: UploadFile) -> StoredFile:
 
 
 async def delete_private_receipt(key: str | None) -> bool:
-    return await run_in_threadpool(_unlink, _safe_path(get_settings().private_upload_dir, key))
+    if not _valid_name(key):
+        return False
+    assert key is not None  # noqa: S101
+    return await run_in_threadpool(_backend().delete_private, key)
 
 
-def private_receipt_path(key: str | None) -> Path | None:
-    path = _safe_path(get_settings().private_upload_dir, key)
-    return path if path is not None and path.exists() else None
-
-
-def media_type_for(path: Path) -> str:
-    return MEDIA_TYPES.get(path.suffix.lstrip(".").lower(), "application/octet-stream")
+async def read_private_receipt(key: str | None) -> ReceiptContent | None:
+    if not _valid_name(key):
+        return None
+    assert key is not None  # noqa: S101
+    return await run_in_threadpool(_read_receipt_sync, key)

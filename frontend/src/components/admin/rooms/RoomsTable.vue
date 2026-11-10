@@ -1,5 +1,5 @@
 <script setup>
-import { assetUrl } from "@/config/env";
+import { fallbackToFullImage, thumbUrl } from "@/config/env";
 import { NO_PHOTO_PLACEHOLDER, operationalStatusMeta } from "@/constants/rooms";
 import { useMoney } from "@/composables/useMoney";
 
@@ -62,10 +62,10 @@ const onImageError = (event) => {
             <td class="ps-4">
               <div class="d-flex align-items-center">
                 <img
-                  :src="assetUrl(room.main_image) || NO_PHOTO_PLACEHOLDER"
+                  :src="thumbUrl(room.main_image) || NO_PHOTO_PLACEHOLDER"
                   class="rounded me-3 border shadow-sm room-thumb"
                   alt=""
-                  @error="onImageError"
+                  @error="fallbackToFullImage($event, room.main_image) || onImageError($event)"
                 />
                 <div>
                   <div class="fw-bold text-brand">{{ room.name }}</div>

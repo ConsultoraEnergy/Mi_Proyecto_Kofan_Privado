@@ -1,6 +1,5 @@
 import logging
 from datetime import date, timedelta
-from pathlib import Path
 
 from bson import ObjectId
 from fastapi import UploadFile
@@ -261,14 +260,14 @@ async def booked_ranges(room_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-async def receipt_file(user: dict, booking_id: str) -> tuple[Path, str]:
+async def receipt_file(user: dict, booking_id: str) -> tuple[storage.ReceiptContent, str]:
     booking = await _get_or_404(booking_id)
     allowed = _is_owner(user, booking) or has_permission(user["role"], Permission.BOOKINGS_VIEW_RECEIPTS)
     receipt = booking.get("receipt")
-    path = storage.private_receipt_path(receipt["key"]) if (allowed and receipt) else None
-    if path is None:
+    content = await storage.read_private_receipt(receipt["key"]) if (allowed and receipt) else None
+    if content is None:
         raise NotFound("Comprobante no encontrado.")
-    return path, booking["code"]
+    return content, booking["code"]
 
 
 async def upload_receipt(user: dict, booking_id: str, file: UploadFile) -> BookingOut:
