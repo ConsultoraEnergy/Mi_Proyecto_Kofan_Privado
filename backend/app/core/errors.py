@@ -2,6 +2,7 @@
 Errores de dominio. Los servicios lanzan estas excepciones (nunca HTTPException) y un manejador
 global las traduce a respuestas HTTP con el formato {"detail": <mensaje>, "code": <código>}.
 """
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -57,4 +58,5 @@ async def _domain_error_handler(_: Request, exc: DomainError) -> JSONResponse:
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(DomainError, _domain_error_handler)
+    # Starlette tipa los manejadores con `Exception`; uno específico de DomainError es válido en ejecución.
+    app.add_exception_handler(DomainError, _domain_error_handler)  # type: ignore[arg-type]

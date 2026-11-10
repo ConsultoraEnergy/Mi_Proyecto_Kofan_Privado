@@ -18,7 +18,8 @@ export function createWebBooking(data, receipt) {
 /** Reserva registrada por el personal (queda confirmada).
  * payload: { room_id, check_in, check_out, guest: {full_name, email, phone?, document_type?, document_number?},
  *            companions?, notes?, total_amount? (solo admin: precio negociado) } */
-export const createManualBooking = (payload) => apiClient.post("/bookings/manual", payload).then((r) => r.data);
+export const createManualBooking = (payload) =>
+  apiClient.post("/bookings/manual", payload).then((r) => r.data);
 
 /** params: { status: "a,b", q, page, limit } -> { items, total, page, limit, summary } */
 export const listBookings = (params = {}) => apiClient.get("/bookings", { params }).then((r) => r.data);

@@ -5,15 +5,19 @@
         <div class="auth-overlay d-flex flex-column justify-content-end h-100 p-5">
           <p class="eyebrow-text mb-2">{{ configStore.hotelName }}</p>
           <h2 class="titulo-auth mb-2">Bienvenido de vuelta a la calma 🌿</h2>
-          <p class="helper-text mb-0">
-            Inicia sesión para continuar tu experiencia con serenidad.
-          </p>
+          <p class="helper-text mb-0">Inicia sesión para continuar tu experiencia con serenidad.</p>
         </div>
       </div>
 
       <div class="col-md-7 p-4 p-lg-5 auth-form-panel d-flex flex-column justify-content-center">
         <div class="text-center mb-4">
-          <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="100" :alt="configStore.hotelName" class="auth-logo" />
+          <img
+            v-if="configStore.logoUrl"
+            :src="configStore.logoUrl"
+            width="100"
+            :alt="configStore.hotelName"
+            class="auth-logo"
+          />
           <font-awesome-icon v-else icon="fa-solid fa-leaf" class="auth-logo-icon" />
           <h3 class="mt-3 mb-2 auth-heading">Iniciar Sesión</h3>
           <p class="helper-text mb-0">Tu espacio de gestión está listo para recibirte.</p>
@@ -23,7 +27,9 @@
           <div class="mb-3">
             <label class="form-label auth-label" for="login-email">Correo Electrónico</label>
             <div class="input-group auth-input-group">
-              <span class="input-group-text border-end-0"><font-awesome-icon icon="fa-solid fa-envelope" /></span>
+              <span class="input-group-text border-end-0"
+                ><font-awesome-icon icon="fa-solid fa-envelope"
+              /></span>
               <input
                 id="login-email"
                 v-model="email"
@@ -53,14 +59,12 @@
           </div>
 
           <div class="text-end mb-4">
-            <router-link :to="{ name: 'forgot-password' }" class="auth-link small">¿Olvidaste tu contraseña?</router-link>
+            <router-link :to="{ name: 'forgot-password' }" class="auth-link small"
+              >¿Olvidaste tu contraseña?</router-link
+            >
           </div>
 
-          <button
-            type="submit"
-            class="btn btn-brand auth-button w-100 py-2 mb-3"
-            :disabled="isLoading"
-          >
+          <button type="submit" class="btn btn-brand auth-button w-100 py-2 mb-3" :disabled="isLoading">
             <span v-if="isLoading" class="spinner-border spinner-border-sm me-2"></span>
             {{ isLoading ? "Entrando..." : "Ingresar" }}
           </button>
@@ -74,6 +78,56 @@
     </div>
   </section>
 </template>
+
+<script setup>
+import { ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import Swal from "sweetalert2";
+import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
+import { errorMessage } from "@/api/apiClient";
+
+const auth = useAuthStore();
+const configStore = useConfigStore();
+const router = useRouter();
+const route = useRoute();
+
+const email = ref("");
+const password = ref("");
+const isLoading = ref(false);
+
+/** Solo se aceptan rutas internas ("/app/...") para evitar redirecciones abiertas. */
+const safeRedirect = () => {
+  const target = route.query.redirect;
+  return typeof target === "string" && target.startsWith("/") && !target.startsWith("//") ? target : null;
+};
+
+const handleLogin = async () => {
+  if (!email.value || !password.value) {
+    Swal.fire("Atención", "Por favor completa todos los campos", "warning");
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    const user = await auth.login(email.value, password.value);
+
+    Swal.fire({
+      icon: "success",
+      title: `¡Bienvenido, ${user.full_name}!`,
+      text: "Acceso concedido al paraíso.",
+      timer: 2000,
+      showConfirmButton: false,
+    });
+
+    router.push(safeRedirect() || auth.homeRoute());
+  } catch (error) {
+    Swal.fire("Error de Acceso", errorMessage(error, "Correo o contraseña incorrectos"), "error");
+  } finally {
+    isLoading.value = false;
+  }
+};
+</script>
 
 <style scoped>
 .auth-section {
@@ -196,53 +250,3 @@
   color: var(--k-forest);
 }
 </style>
-
-<script setup>
-import { ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import Swal from "sweetalert2";
-import { useAuthStore } from "@/stores/auth";
-import { useConfigStore } from "@/stores/config";
-import { errorMessage } from "@/api/apiClient";
-
-const auth = useAuthStore();
-const configStore = useConfigStore();
-const router = useRouter();
-const route = useRoute();
-
-const email = ref("");
-const password = ref("");
-const isLoading = ref(false);
-
-/** Solo se aceptan rutas internas ("/app/...") para evitar redirecciones abiertas. */
-const safeRedirect = () => {
-  const target = route.query.redirect;
-  return typeof target === "string" && target.startsWith("/") && !target.startsWith("//") ? target : null;
-};
-
-const handleLogin = async () => {
-  if (!email.value || !password.value) {
-    Swal.fire("Atención", "Por favor completa todos los campos", "warning");
-    return;
-  }
-
-  isLoading.value = true;
-  try {
-    const user = await auth.login(email.value, password.value);
-
-    Swal.fire({
-      icon: "success",
-      title: `¡Bienvenido, ${user.full_name}!`,
-      text: "Acceso concedido al paraíso.",
-      timer: 2000,
-      showConfirmButton: false,
-    });
-
-    router.push(safeRedirect() || auth.homeRoute());
-  } catch (error) {
-    Swal.fire("Error de Acceso", errorMessage(error, "Correo o contraseña incorrectos"), "error");
-  } finally {
-    isLoading.value = false;
-  }
-};
-</script>

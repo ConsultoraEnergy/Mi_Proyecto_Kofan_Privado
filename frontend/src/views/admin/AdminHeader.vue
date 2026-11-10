@@ -39,9 +39,7 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <header
-    class="admin-header d-flex align-items-center justify-content-between px-4"
-  >
+  <header class="admin-header d-flex align-items-center justify-content-between px-4">
     <div class="header-left d-flex align-items-center gap-3">
       <button class="btn btn-soft-sky d-md-none me-1">
         <font-awesome-icon icon="fa-solid fa-filter" />
@@ -69,10 +67,7 @@ const handleLogout = async () => {
 
       <div class="vertical-divider"></div>
 
-      <button
-        @click="handleLogout"
-        class="btn btn-logout-soft-sm btn-sm px-3 shadow-sm"
-      >
+      <button class="btn btn-logout-soft-sm btn-sm px-3 shadow-sm" @click="handleLogout">
         <font-awesome-icon icon="fa-solid fa-right-from-bracket" class="me-1" /> Salir
       </button>
     </div>
@@ -123,7 +118,7 @@ const handleLogout = async () => {
   background-color: var(--k-danger-soft);
   color: var(--k-danger);
   border: 1px solid var(--k-danger-border);
-  font-family: 'Handlee', cursive;
+  font-family: "Handlee", cursive;
   font-weight: 600;
   transition: all 0.25s ease;
   display: inline-flex;

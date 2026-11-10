@@ -6,17 +6,17 @@
       <div class="icon-container mb-4">
         <font-awesome-icon icon="compass" class="compass-icon fa-spin-slow" />
       </div>
-      
+
       <h1 class="display-1 fw-bold text-white mb-0">404</h1>
       <h2 class="fw-bold verde-esmeralda mb-3">¡Ruta no encontrada!</h2>
-      
+
       <p class="text-light mb-4">
-        Parece que te has adentrado demasiado en la espesura de la selva. 
-        El sendero que buscas no existe o ha sido movido.
+        Parece que te has adentrado demasiado en la espesura de la selva. El sendero que buscas no existe o ha
+        sido movido.
       </p>
 
       <div class="d-flex flex-column flex-md-row gap-3 justify-content-center">
-        <button @click="$router.back()" class="btn btn-outline-light px-4">
+        <button class="btn btn-outline-light px-4" @click="$router.back()">
           <font-awesome-icon icon="arrow-left" class="me-2" /> Volver atrás
         </button>
         <router-link :to="{ name: 'hospedaje-home' }" class="btn btn-brand-primary px-4">
@@ -39,7 +39,7 @@ const configStore = useConfigStore();
   width: 100%;
   position: relative;
   /* Imagen de fondo de selva/naturaleza */
-  background-image: url('https://wallpapers.com/images/hd/green-jungle-pathway-lk8i82i3bt5pl282.jpg');
+  background-image: url("https://wallpapers.com/images/hd/green-jungle-pathway-lk8i82i3bt5pl282.jpg");
   background-size: cover;
   background-position: center;
 }
@@ -79,8 +79,12 @@ const configStore = useConfigStore();
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn-brand-primary {

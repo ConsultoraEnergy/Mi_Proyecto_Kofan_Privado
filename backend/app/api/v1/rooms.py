@@ -36,6 +36,7 @@ def _can_see_inactive(user: dict | None, requested: bool) -> bool:
 
 # --- Tipos de habitación ---
 
+
 @router.get("/room-types", response_model=list[RoomTypeOut])
 async def list_room_types(user: OptionalUser, include_inactive: bool = False):
     return await service.list_types(_can_see_inactive(user, include_inactive))
@@ -53,6 +54,7 @@ async def update_room_type(type_id: str, data: RoomTypeUpdate, actor: RoomsWrite
 
 # --- Disponibilidad y cotización (públicas) ---
 
+
 @router.get("/availability", response_model=AvailabilityOut)
 async def availability(
     room_type: str = Query(min_length=2, max_length=40),
@@ -65,6 +67,7 @@ async def availability(
 
 # --- Habitaciones ---
 
+
 @router.get("/rooms", response_model=RoomPage)
 async def list_rooms(
     user: OptionalUser,
@@ -74,8 +77,9 @@ async def list_rooms(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ):
-    return await service.list_rooms(include_inactive=_can_see_inactive(user, include_inactive),
-                                    room_type=room_type, q=q, page=page, limit=limit)
+    return await service.list_rooms(
+        include_inactive=_can_see_inactive(user, include_inactive), room_type=room_type, q=q, page=page, limit=limit
+    )
 
 
 @router.post("/rooms", response_model=RoomOut, status_code=status.HTTP_201_CREATED)

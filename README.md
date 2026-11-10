@@ -13,7 +13,20 @@ Sistema de reservas del hotel: sitio público, área del huésped y panel del pe
 - Contrato de la API: [docs/API_V1.md](docs/API_V1.md)
 - Nivel de acceso por endpoint: [docs/ENDPOINTS_ACCESO.md](docs/ENDPOINTS_ACCESO.md)
 
-## Arranque rápido (desarrollo)
+## Arranque rápido con Docker (un comando)
+
+Requisitos: Docker con Compose v2.24+.
+
+```sh
+docker compose up --build                                       # http://localhost:8080
+docker compose run --rm api python -m backend.scripts.seed --demo-rooms   # en otra terminal, la primera vez
+```
+
+Levanta MongoDB local (nunca Atlas), la API y el frontend servido por Nginx, que hace de proxy de `/api`
+y `/static/uploads` (mismo origen, como exige la cookie de sesión). Los datos persisten en volúmenes;
+`docker compose down -v` los borra.
+
+## Arranque rápido (sin Docker)
 
 Requisitos: Python 3.12, [uv](https://docs.astral.sh/uv/) (`pip install uv`), Node 20.19+ y MongoDB (local o Atlas).
 
@@ -41,10 +54,37 @@ En desarrollo los correos (verificación, recuperación de contraseña) se muest
 ```sh
 uv run pytest                 # backend: levanta un mongod temporal (o usa MONGO_TEST_URI)
 uv run pytest --cov=backend/app
+cd frontend && npm test       # frontend: Vitest
 ```
 
 Las pruebas del backend usan un MongoDB real: buscan `mongod` en el PATH, en `MONGOD_PATH` o en
 `C:\Program Files\MongoDB\Server\*\bin`. También puedes apuntar a un servidor existente con `MONGO_TEST_URI`.
+
+## Calidad de código
+
+| Capa | Herramientas | Comandos |
+|---|---|---|
+| Backend | Ruff (lint + formato), mypy | `uv run ruff check .` · `uv run ruff format .` · `uv run mypy` |
+| Frontend | ESLint (plugin Vue), Prettier | `npm run lint` · `npm run format` (dentro de `frontend/`) |
+
+Hooks de pre-commit (Ruff, mypy, ESLint, Prettier, bloqueo de `.env` y de archivos grandes):
+
+```sh
+uv run pre-commit install           # una vez por clon (requiere uv en el PATH y npm ci en frontend/)
+uv run pre-commit run --all-files   # revisión completa manual
+```
+
+El CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) ejecuta lo mismo en cada push y PR, además de
+las pruebas con cobertura mínima (70 % en `auth` y `bookings`, 85 % total), el build del frontend y la
+construcción y arranque de las imágenes Docker.
+
+## Observabilidad
+
+- `GET /health`: liveness (el proceso responde). `GET /ready`: readiness (MongoDB responde; 503 si no).
+- Cada respuesta lleva `X-Request-ID` (se respeta el entrante si es válido). El mismo id aparece en todos
+  los logs de la petición y en las respuestas 500 (`request_id`), para cruzar un reporte del usuario con el log.
+- Logs: texto legible en desarrollo y JSON de una línea en producción (`LOG_FORMAT`, `LOG_LEVEL`).
+- Sentry: se activa al definir `SENTRY_DSN`. No envía datos personales (`send_default_pii=False`).
 
 ## Estructura
 

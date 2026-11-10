@@ -1,0 +1,68 @@
+# Entorno local completo con un comando:
+#   docker compose up --build            -> http://localhost:8080
+#   docker compose run --rm api python -m backend.scripts.seed   (admin inicial, tipos y ajustes)
+#
+# Usa un MongoDB local en contenedor (nunca Atlas). Las variables de backend/.env se cargan si el
+# archivo existe, pero MONGO_URI y las de este archivo tienen prioridad.
+# Redis llegará con el worker de tareas (Fase 3); hoy ningún componente lo usa.
+
+name: kawari
+
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Descomenta para conectarte con Compass desde el host:
+    # ports: ["27017:27017"]
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      MONGO_URI: mongodb://mongo:27017/?serverSelectionTimeoutMS=5000
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-kawari}
+      # Solo para desarrollo local. En cualquier entorno compartido define SECRET_KEY en .env.
+      SECRET_KEY: ${SECRET_KEY:-solo-desarrollo-local-NO-usar-en-produccion-0123456789}
+      FRONTEND_URL: http://localhost:8080
+      CORS_ORIGINS: '["http://localhost:8080"]'
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+      LOG_FORMAT: ${LOG_FORMAT:-text}
+      # Nginx (servicio web) es el único que llega a la API: se confía en sus cabeceras X-Forwarded-*.
+      FORWARDED_ALLOW_IPS: "*"
+    volumes:
+      - uploads:/data/uploads
+      - private_uploads:/data/private
+    depends_on:
+      mongo:
+        condition: service_healthy
+    # Descomenta para llamar la API directamente (Swagger en http://localhost:8000/docs):
+    # ports: ["8000:8000"]
+
+  web:
+    build:
+      context: frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  mongo_data:
+  uploads:
+  private_uploads:

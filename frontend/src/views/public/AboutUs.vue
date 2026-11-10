@@ -73,10 +73,7 @@
               <font-awesome-icon icon="fa-solid fa-heart-pulse" />
             </div>
             <h4>Hospitalidad</h4>
-            <p>
-              Servicio desde el corazón, haciendo sentir a cada huésped en su
-              hogar amazónico.
-            </p>
+            <p>Servicio desde el corazón, haciendo sentir a cada huésped en su hogar amazónico.</p>
           </div>
 
           <div class="valor-item">
@@ -84,10 +81,7 @@
               <font-awesome-icon icon="fa-solid fa-earth-americas" />
             </div>
             <h4>Sostenibilidad</h4>
-            <p>
-              Protegemos la biodiversidad mediante prácticas de bajo impacto
-              ambiental.
-            </p>
+            <p>Protegemos la biodiversidad mediante prácticas de bajo impacto ambiental.</p>
           </div>
 
           <div class="valor-item">
@@ -95,9 +89,7 @@
               <font-awesome-icon icon="fa-solid fa-person-praying" />
             </div>
             <h4>Identidad</h4>
-            <p>
-              Honramos y difundimos la riqueza cultural de nuestra región.
-            </p>
+            <p>Honramos y difundimos la riqueza cultural de nuestra región.</p>
           </div>
 
           <div class="valor-item">
@@ -105,10 +97,7 @@
               <font-awesome-icon icon="fa-solid fa-handshake-angle" />
             </div>
             <h4>Integridad</h4>
-            <p>
-              Actuamos con transparencia y respeto hacia nuestra comunidad y
-              visitantes.
-            </p>
+            <p>Actuamos con transparencia y respeto hacia nuestra comunidad y visitantes.</p>
           </div>
         </div>
       </div>
@@ -123,10 +112,7 @@
 
         <div class="row justify-content-center">
           <div class="col-lg-8">
-            <div
-              class="accordion accordion-flush custom-accordion"
-              id="accordionBrand"
-            >
+            <div id="accordionBrand" class="accordion accordion-flush custom-accordion">
               <div class="accordion-item shadow-sm mb-3">
                 <h2 class="accordion-header">
                   <button
@@ -138,15 +124,10 @@
                     ¿Qué ropa debo llevar para mi visita?
                   </button>
                 </h2>
-                <div
-                  id="faq1"
-                  class="accordion-collapse collapse"
-                  data-bs-parent="#accordionBrand"
-                >
+                <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#accordionBrand">
                   <div class="accordion-body">
-                    Recomendamos ropa ligera y transpirable, preferiblemente de
-                    secado rápido. No olvides botas de trekking o calzado
-                    cerrado, repelente para insectos y un impermeable ligero, ya
+                    Recomendamos ropa ligera y transpirable, preferiblemente de secado rápido. No olvides
+                    botas de trekking o calzado cerrado, repelente para insectos y un impermeable ligero, ya
                     que el clima amazónico es impredecible.
                   </div>
                 </div>
@@ -163,15 +144,10 @@
                     ¿El hotel cuenta con conexión a internet?
                   </button>
                 </h2>
-                <div
-                  id="faq2"
-                  class="accordion-collapse collapse"
-                  data-bs-parent="#accordionBrand"
-                >
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#accordionBrand">
                   <div class="accordion-body">
-                    Sí, contamos con conexión Wi-Fi de alta velocidad en las
-                    zonas comunes y habitaciones, ideal para nómadas digitales
-                    que desean trabajar rodeados de naturaleza.
+                    Sí, contamos con conexión Wi-Fi de alta velocidad en las zonas comunes y habitaciones,
+                    ideal para nómadas digitales que desean trabajar rodeados de naturaleza.
                   </div>
                 </div>
               </div>
@@ -187,16 +163,11 @@
                     ¿Cómo funciona la política de cancelación?
                   </button>
                 </h2>
-                <div
-                  id="faq3"
-                  class="accordion-collapse collapse"
-                  data-bs-parent="#accordionBrand"
-                >
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#accordionBrand">
                   <div class="accordion-body">
-                    Puedes cancelar tu reserva con hasta 72 horas de
-                    anticipación para recibir un reembolso parcial. El anticipo
-                    del {{ configStore.data.deposit_percent }}% no es reembolsable, pero puede ser
-                    reprogramado para una fecha futura según disponibilidad.
+                    Puedes cancelar tu reserva con hasta 72 horas de anticipación para recibir un reembolso
+                    parcial. El anticipo del {{ configStore.data.deposit_percent }}% no es reembolsable, pero
+                    puede ser reprogramado para una fecha futura según disponibilidad.
                   </div>
                 </div>
               </div>
@@ -213,18 +184,14 @@
             <span class="etiqueta-verde">Turismo Regenerativo</span>
             <h2 class="titulo-impacto">Guardianes de la Selva</h2>
             <p class="descripcion-impacto">
-              En {{ configStore.hotelName }}, entendemos que somos huéspedes de la
-              naturaleza. Nuestra operación está diseñada para devolverle a la
-              tierra más de lo que tomamos, apoyando directamente a la
-              biodiversidad y a las familias de la región.
+              En {{ configStore.hotelName }}, entendemos que somos huéspedes de la naturaleza. Nuestra
+              operación está diseñada para devolverle a la tierra más de lo que tomamos, apoyando directamente
+              a la biodiversidad y a las familias de la región.
             </p>
 
             <div class="lista-compromisos">
               <div class="compromiso-item">
-                <font-awesome-icon
-                  icon="fa-solid fa-droplet"
-                  class="icon-check"
-                />
+                <font-awesome-icon icon="fa-solid fa-droplet" class="icon-check" />
                 <span>Tratamiento biológico de aguas residuales.</span>
               </div>
               <div class="compromiso-item">
@@ -232,13 +199,8 @@
                 <span>Energía limpia en senderos y zonas comunes.</span>
               </div>
               <div class="compromiso-item">
-                <font-awesome-icon
-                  icon="fa-solid fa-mound"
-                  class="icon-check"
-                />
-                <span
-                  >Compostaje de residuos orgánicos para nuestra huerta.</span
-                >
+                <font-awesome-icon icon="fa-solid fa-mound" class="icon-check" />
+                <span>Compostaje de residuos orgánicos para nuestra huerta.</span>
               </div>
             </div>
           </div>
@@ -279,65 +241,35 @@
       <div class="container-fluid p-0">
         <div class="carousel-track">
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos1.jpg"
-              alt="Amanecer en el muelle"
-            />
+            <img src="@/img/eventos1.jpg" alt="Amanecer en el muelle" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/habitacion1.jpg"
-              alt="Detalle de Artesanía Ancestral"
-            />
+            <img src="@/img/habitacion1.jpg" alt="Detalle de Artesanía Ancestral" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos2.jpg"
-              alt="Paseo en canoa por el río"
-            />
+            <img src="@/img/eventos2.jpg" alt="Paseo en canoa por el río" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/habitacion3.jpg"
-              alt="Senderismo por Bosque Nativo"
-            />
+            <img src="@/img/habitacion3.jpg" alt="Senderismo por Bosque Nativo" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos5.jpg"
-              alt="Interior de Habitación Ancestral"
-            />
+            <img src="@/img/eventos5.jpg" alt="Interior de Habitación Ancestral" />
           </div>
 
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos1.jpg"
-              alt="Amanecer en el muelle"
-            />
+            <img src="@/img/eventos1.jpg" alt="Amanecer en el muelle" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/habitacion1.jpg"
-              alt="Detalle de Artesanía Ancestral"
-            />
+            <img src="@/img/habitacion1.jpg" alt="Detalle de Artesanía Ancestral" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos2.jpg"
-              alt="Paseo en canoa por el río"
-            />
+            <img src="@/img/eventos2.jpg" alt="Paseo en canoa por el río" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/habitacion3.jpg"
-              alt="Senderismo por Bosque Nativo"
-            />
+            <img src="@/img/habitacion3.jpg" alt="Senderismo por Bosque Nativo" />
           </div>
           <div class="carousel-item-img">
-            <img
-              src="@/img/eventos5.jpg"
-              alt="Interior de Habitación Ancestral"
-            />
+            <img src="@/img/eventos5.jpg" alt="Interior de Habitación Ancestral" />
           </div>
         </div>
       </div>
@@ -358,10 +290,14 @@ const descripcion = computed(
     `${configStore.hotelName} es un lugar para descansar, compartir y disfrutar de una atención cercana.`,
 );
 const mision = computed(
-  () => configStore.data.mission || "Ofrecer una experiencia de hospedaje cómoda, cercana y respetuosa con el entorno.",
+  () =>
+    configStore.data.mission ||
+    "Ofrecer una experiencia de hospedaje cómoda, cercana y respetuosa con el entorno.",
 );
 const vision = computed(
-  () => configStore.data.vision || "Ser un referente de hospitalidad reconocido por la calidad de nuestro servicio.",
+  () =>
+    configStore.data.vision ||
+    "Ser un referente de hospitalidad reconocido por la calidad de nuestro servicio.",
 );
 </script>
 
@@ -534,7 +470,7 @@ img {
     grid-template-columns: 1fr 1fr; /* Dos columnas en móvil */
     gap: 15px;
   }
-} 
+}
 
 /* --- FAQ STYLE --- */
 .faq-section {
@@ -581,7 +517,7 @@ img {
 
 /* --- SECCIÓN IMPACTO --- */
 .impacto-local {
-  background-color: var(--k-forest-soft); 
+  background-color: var(--k-forest-soft);
   padding: 100px 20px;
   color: var(--k-cream);
 }

@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=11,<14",
     "apscheduler>=3.11,<4",
     "tzdata>=2025.2",
+    "sentry-sdk[fastapi]>=2.20,<3",
 ]
 
 [dependency-groups]
@@ -25,6 +26,9 @@ dev = [
     "pytest-asyncio>=1.2",
     "pytest-cov>=7",
     "httpx>=0.28",
+    "ruff>=0.14",
+    "mypy>=1.18",
+    "pre-commit>=4.3",
 ]
 
 [tool.uv]
@@ -38,3 +42,43 @@ asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
 addopts = "-p no:cacheprovider"
 filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["."]
+extend-exclude = ["frontend", "docs"]
+
+[tool.ruff.lint]
+# E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, SIM simplify, ASYNC, S bandit (seguridad)
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "ASYNC", "S", "RUF"]
+ignore = [
+    "B008",    # Depends()/File()/Query() en argumentos por defecto es el patrón de FastAPI
+    "RUF001",  # caracteres ambiguos en strings: el código está en español (tildes, ñ)
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["S101", "S105", "S106", "S108", "S603", "S607"]
+"backend/scripts/**" = ["T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["backend.app"]
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[tool.coverage.run]
+source = ["backend/app"]
+omit = ["backend/tests/*"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]

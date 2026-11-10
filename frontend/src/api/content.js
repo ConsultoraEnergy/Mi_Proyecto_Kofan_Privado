@@ -11,7 +11,9 @@ export function uploadLogo(file) {
 
 // --- Galería: [{ id, url, title, category, created_at }] ---
 export const listGallery = (category = null) =>
-  apiClient.get("/gallery", { params: category && category !== "all" ? { category } : {} }).then((r) => r.data);
+  apiClient
+    .get("/gallery", { params: category && category !== "all" ? { category } : {} })
+    .then((r) => r.data);
 
 export function uploadGalleryImage(file, category = "general", title = "") {
   const form = new FormData();

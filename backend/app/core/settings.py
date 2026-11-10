@@ -4,6 +4,7 @@ Configuración única de la aplicación (pydantic-settings).
 Todas las variables se leen de entorno o de `backend/.env`. Los campos sin valor por defecto son
 obligatorios: si faltan, la aplicación no arranca.
 """
+
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -78,6 +79,13 @@ class Settings(BaseSettings):
     # --- Tareas programadas ---
     scheduler_enabled: bool = True
 
+    # --- Observabilidad ---
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    log_format: Literal["json", "text"] | None = None  # None = json en producción, text en desarrollo
+    sentry_dsn: SecretStr | None = None  # vacío = Sentry desactivado
+    sentry_traces_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    app_release: str | None = None  # p. ej. el SHA del commit; se reporta a Sentry
+
     @field_validator("secret_key")
     @classmethod
     def _secret_key_must_be_strong(cls, value: SecretStr) -> SecretStr:
@@ -109,6 +117,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
+
+    @property
+    def effective_log_format(self) -> str:
+        if self.log_format is not None:
+            return self.log_format
+        return "json" if self.is_production else "text"
 
     @property
     def cookie_secure(self) -> bool:

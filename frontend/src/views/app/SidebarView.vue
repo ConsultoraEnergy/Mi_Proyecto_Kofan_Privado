@@ -45,7 +45,7 @@ watch(() => route.name, revisarNotificaciones);
   <aside class="sidebar-brand shadow-sm">
     <div class="text-center mb-4 mt-2">
       <h6 class="fw-bold text-muted text-uppercase tracking-wider">Menú {{ configStore.hotelName }}</h6>
-      <hr class="opacity-10 mx-3">
+      <hr class="opacity-10 mx-3" />
     </div>
 
     <nav class="nav flex-column gap-2">
@@ -57,9 +57,16 @@ watch(() => route.name, revisarNotificaciones);
         <font-awesome-icon icon="fa-solid fa-calendar-check" class="me-3 fs-5 icon-brand" /> Mis Reservas
       </router-link>
 
-      <router-link :to="{ name: 'account-notifications' }" class="nav-link-brand d-flex justify-content-between align-items-center">
+      <router-link
+        :to="{ name: 'account-notifications' }"
+        class="nav-link-brand d-flex justify-content-between align-items-center"
+      >
         <div>
-          <font-awesome-icon icon="fa-solid fa-bell" class="me-3 fs-5 icon-brand transition-all" :class="avisosSinLeer > 0 ? 'text-warning' : ''" />
+          <font-awesome-icon
+            icon="fa-solid fa-bell"
+            class="me-3 fs-5 icon-brand transition-all"
+            :class="avisosSinLeer > 0 ? 'text-warning' : ''"
+          />
           Todos los Avisos
         </div>
         <span v-if="avisosSinLeer > 0" class="badge bg-warning text-dark rounded-pill shadow-sm">
@@ -71,17 +78,18 @@ watch(() => route.name, revisarNotificaciones);
         <font-awesome-icon icon="fa-solid fa-user-shield" class="me-3 fs-5 icon-brand" /> Panel Administrativo
       </router-link>
 
-      <hr class="my-3 opacity-10">
+      <hr class="my-3 opacity-10" />
 
       <router-link to="/" class="nav-link-brand">
-        <font-awesome-icon icon="fa-solid fa-house-chimney" class="me-3 fs-5 icon-brand text-success" /> Continuar Navegando
+        <font-awesome-icon icon="fa-solid fa-house-chimney" class="me-3 fs-5 icon-brand text-success" />
+        Continuar Navegando
       </router-link>
 
       <router-link :to="{ name: 'account-settings' }" class="nav-link-brand">
         <font-awesome-icon icon="fa-solid fa-user-gear" class="me-3 fs-5 icon-brand" /> Configuración
       </router-link>
 
-      <a href="#" @click.prevent="handleLogout" class="nav-link-brand logout-link">
+      <a href="#" class="nav-link-brand logout-link" @click.prevent="handleLogout">
         <font-awesome-icon icon="fa-solid fa-right-from-bracket" class="me-3 fs-5 text-danger" /> Salir
       </a>
     </nav>

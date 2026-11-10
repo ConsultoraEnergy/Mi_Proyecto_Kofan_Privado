@@ -51,8 +51,12 @@ def _set_refresh_cookie(response: Response, raw: str) -> None:
 
 def _clear_refresh_cookie(response: Response) -> None:
     settings = get_settings()
-    response.delete_cookie(settings.refresh_cookie_name, path=COOKIE_PATH,
-                           secure=settings.cookie_secure, samesite=settings.refresh_cookie_samesite)
+    response.delete_cookie(
+        settings.refresh_cookie_name,
+        path=COOKIE_PATH,
+        secure=settings.cookie_secure,
+        samesite=settings.refresh_cookie_samesite,
+    )
 
 
 RefreshCookie = Annotated[str | None, Cookie(alias=get_settings().refresh_cookie_name)]

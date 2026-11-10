@@ -4,6 +4,7 @@
 `ensure_database()` es idempotente: crea las colecciones con su validador si no existen,
 actualiza el validador si ya existen (collMod) y crea los índices que falten.
 """
+
 import logging
 
 from pymongo import ASCENDING, DESCENDING, IndexModel
@@ -26,7 +27,12 @@ _NON_NEGATIVE_NUMBER = {"bsonType": ["int", "long", "double", "decimal"], "minim
 _POSITIVE_INT = {"bsonType": ["int", "long"], "minimum": 1}
 
 BOOKING_STATUSES = [
-    "pending_payment", "pending_verification", "confirmed", "checked_in", "checked_out", "cancelled",
+    "pending_payment",
+    "pending_verification",
+    "confirmed",
+    "checked_in",
+    "checked_out",
+    "cancelled",
 ]
 
 VALIDATORS: dict[str, dict] = {
@@ -59,8 +65,15 @@ VALIDATORS: dict[str, dict] = {
     "rooms": {
         "bsonType": "object",
         "required": [
-            "number", "name", "room_type_id", "price_per_night", "capacity",
-            "is_active", "operational_status", "images", "amenities",
+            "number",
+            "name",
+            "room_type_id",
+            "price_per_night",
+            "capacity",
+            "is_active",
+            "operational_status",
+            "images",
+            "amenities",
         ],
         "properties": {
             "number": _NON_EMPTY_STR,
@@ -78,8 +91,18 @@ VALIDATORS: dict[str, dict] = {
     "bookings": {
         "bsonType": "object",
         "required": [
-            "code", "room_id", "guest", "check_in", "check_out", "nights", "price_per_night",
-            "total_amount", "deposit_amount", "status", "source", "created_at",
+            "code",
+            "room_id",
+            "guest",
+            "check_in",
+            "check_out",
+            "nights",
+            "price_per_night",
+            "total_amount",
+            "deposit_amount",
+            "status",
+            "source",
+            "created_at",
         ],
         "properties": {
             "code": _NON_EMPTY_STR,

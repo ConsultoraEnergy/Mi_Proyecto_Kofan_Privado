@@ -4,6 +4,7 @@ Conexión a MongoDB con la API async nativa de PyMongo (reemplaza a Motor, que e
 Los repositorios obtienen la base de datos con `get_db()` en cada llamada; así las pruebas pueden
 apuntar a otra base con `use_database()`.
 """
+
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 

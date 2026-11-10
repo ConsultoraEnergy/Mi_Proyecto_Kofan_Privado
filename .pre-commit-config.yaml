@@ -1,0 +1,52 @@
+# Hooks de calidad. Instalar una vez por clon:  uv run pre-commit install
+# Ejecutar sobre todo el repo:                  uv run pre-commit run --all-files
+# Requisitos: uv en el PATH y `npm ci` ejecutado en frontend/.
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=800"] # las fotos van a object storage, no a git
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.4 # mantener alineado con uv.lock
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: forbid-env-files
+        name: impedir commit de archivos .env (secretos)
+        language: fail
+        entry: "Los archivos .env contienen secretos y no se versionan. Usa .env.example."
+        files: (^|/)\.env(\.[^/]*)?$
+        exclude: \.example$
+
+      - id: mypy
+        name: mypy (backend)
+        language: system
+        entry: uv run --frozen mypy
+        types: [python]
+        files: ^backend/app/
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (frontend)
+        language: system
+        entry: node frontend/node_modules/eslint/bin/eslint.js --config frontend/eslint.config.js --fix --max-warnings=0
+        files: ^frontend/.*\.(js|vue)$
+
+      - id: prettier
+        name: prettier (frontend)
+        language: system
+        entry: node frontend/node_modules/prettier/bin/prettier.cjs --write --ignore-unknown
+        files: ^frontend/
+        exclude: ^frontend/(package-lock\.json|public/|dist/)

@@ -85,12 +85,13 @@ function escapeHtml(text) {
   <main class="auth-page py-5 mt-3">
     <div class="container d-flex justify-content-center">
       <div class="register-card row g-0">
-
         <div class="col-lg-4 d-none d-lg-flex flex-column justify-content-between p-4 p-xl-5 sidebar-brand">
           <div>
             <p class="sidebar-kicker mb-2">Comunidad {{ configStore.hotelName }}</p>
             <h2 class="sidebar-title">Únete a nuestra comunidad y gestiona con armonía</h2>
-            <p class="sidebar-copy mb-0">Crea tu cuenta para organizar cada experiencia con calma y claridad.</p>
+            <p class="sidebar-copy mb-0">
+              Crea tu cuenta para organizar cada experiencia con calma y claridad.
+            </p>
           </div>
 
           <div class="text-center mt-auto pb-3">
@@ -110,21 +111,17 @@ function escapeHtml(text) {
             <p class="register-copy mb-0">Tu acceso a {{ configStore.hotelName }} comienza aquí.</p>
           </div>
 
-          <FormularioRegistro
-            :mostrarRol="false"
-            :cargando="isLoading"
-            @enviar="registrarCliente"
-          />
+          <FormularioRegistro :mostrar-rol="false" :cargando="isLoading" @enviar="registrarCliente" />
 
           <div class="col-12 text-center mt-3">
             <p class="helper-copy mb-0">
               ¿Ya tienes una cuenta?
-              <router-link :to="{ name: 'login' }" class="auth-link text-decoration-none">Inicia Sesión</router-link>
+              <router-link :to="{ name: 'login' }" class="auth-link text-decoration-none"
+                >Inicia Sesión</router-link
+              >
             </p>
           </div>
-
         </div>
-
       </div>
     </div>
   </main>

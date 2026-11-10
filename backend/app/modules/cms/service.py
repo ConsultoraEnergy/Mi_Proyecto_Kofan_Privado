@@ -1,4 +1,5 @@
 """Contenido del sitio editable desde el panel: ajustes generales (marca, contacto, pago) y galería."""
+
 import re
 from datetime import datetime
 from typing import Annotated
@@ -26,6 +27,9 @@ class SiteSettingsIn(BaseModel):
 
     hotel_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)]
     tagline: Text = ""
+    # Responsable del tratamiento de datos (Ley 1581): aparecen en la política de datos.
+    legal_name: Text = ""
+    tax_id: Annotated[str, StringConstraints(strip_whitespace=True, max_length=30)] = ""
     contact_email: Text = ""
     phone: Text = ""
     whatsapp_number: Text = ""
@@ -85,7 +89,9 @@ async def update_site_settings(actor: dict, data: SiteSettingsIn) -> SiteSetting
 async def update_logo(actor: dict, file: UploadFile) -> SiteSettingsOut:
     url = await storage.save_public_image(file)
     before = await get_db().settings.find_one_and_update(
-        {"_id": SETTINGS_ID}, {"$set": {"logo_url": url, "updated_at": utcnow(), "updated_by": actor["email"]}}, upsert=True
+        {"_id": SETTINGS_ID},
+        {"$set": {"logo_url": url, "updated_at": utcnow(), "updated_by": actor["email"]}},
+        upsert=True,
     )
     if before and before.get("logo_url"):
         await storage.delete_public_file(before["logo_url"])
@@ -96,6 +102,7 @@ async def update_logo(actor: dict, file: UploadFile) -> SiteSettingsOut:
 # Galería
 # ---------------------------------------------------------------------------
 
+
 class GalleryImageOut(BaseModel):
     id: str
     url: str
@@ -105,8 +112,13 @@ class GalleryImageOut(BaseModel):
 
 
 def _gallery_out(doc: dict) -> GalleryImageOut:
-    return GalleryImageOut(id=str(doc["_id"]), url=doc["url"], title=doc.get("title", ""),
-                           category=doc.get("category", "general"), created_at=doc["created_at"])
+    return GalleryImageOut(
+        id=str(doc["_id"]),
+        url=doc["url"],
+        title=doc.get("title", ""),
+        category=doc.get("category", "general"),
+        created_at=doc["created_at"],
+    )
 
 
 async def list_gallery(category: str | None, page: int, limit: int) -> list[GalleryImageOut]:

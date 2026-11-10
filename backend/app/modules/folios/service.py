@@ -5,13 +5,14 @@ Folios de huésped (antes "invoices"). NO es una factura electrónica DIAN (ver 
 - Numeración consecutiva (colección counters).
 - El total SIEMPRE lo calcula el servidor: subtotal de alojamiento + cargos (6.6).
 """
+
 from datetime import date, datetime
+from typing import Annotated
 
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
-from typing import Annotated
 
 from backend.app.core.errors import Conflict, NotFound
 from backend.app.core.time import datetime_to_date, utcnow
@@ -73,7 +74,9 @@ def to_out(doc: dict) -> FolioOut:
         check_out=datetime_to_date(doc["check_out"]),
         nights=doc.get("nights", 0),
         room_subtotal=doc["room_subtotal"],
-        charges=[ChargeOut(id=str(c["id"]), **{k: v for k, v in c.items() if k != "id"}) for c in doc.get("charges", [])],
+        charges=[
+            ChargeOut(id=str(c["id"]), **{k: v for k, v in c.items() if k != "id"}) for c in doc.get("charges", [])
+        ],
         total_amount=doc["total_amount"],
         status=doc["status"],
         opened_at=doc["opened_at"],
@@ -85,6 +88,8 @@ async def _next_number() -> int:
     counter = await get_db().counters.find_one_and_update(
         {"_id": "folio"}, {"$inc": {"seq": 1}}, upsert=True, return_document=ReturnDocument.AFTER
     )
+    if counter is None:  # imposible con upsert + AFTER; protege el tipado
+        raise RuntimeError("No se pudo generar el consecutivo de folio.")
     return counter["seq"]
 
 
@@ -112,7 +117,10 @@ async def open_for_booking(booking: dict, actor: str | None) -> dict:
     try:
         result = await get_db().folios.insert_one(doc)
     except DuplicateKeyError:  # otro proceso lo abrió al mismo tiempo
-        return await get_db().folios.find_one({"booking_id": booking["_id"]})
+        concurrent = await get_db().folios.find_one({"booking_id": booking["_id"]})
+        if concurrent is None:
+            raise
+        return concurrent
     return {**doc, "_id": result.inserted_id}
 
 
@@ -121,13 +129,15 @@ async def sync_with_booking(booking: dict) -> None:
     await get_db().folios.update_one(
         {"booking_id": booking["_id"], "status": "open"},
         [
-            {"$set": {
-                "room_subtotal": booking["total_amount"],
-                "check_in": booking["check_in"],
-                "check_out": booking["check_out"],
-                "nights": booking["nights"],
-                "guest": {"$literal": booking["guest"]},
-            }},
+            {
+                "$set": {
+                    "room_subtotal": booking["total_amount"],
+                    "check_in": booking["check_in"],
+                    "check_out": booking["check_out"],
+                    "nights": booking["nights"],
+                    "guest": {"$literal": booking["guest"]},
+                }
+            },
             _RECOMPUTE_TOTAL,
         ],
     )
@@ -159,8 +169,13 @@ async def _get_open(folio_id: str) -> ObjectId:
 
 async def add_charge(folio_id: str, data: ChargeIn, actor: str) -> FolioOut:
     oid = await _get_open(folio_id)
-    charge = {"id": ObjectId(), "description": data.description, "amount": round(data.amount, 2),
-              "created_at": utcnow(), "created_by": actor}
+    charge = {
+        "id": ObjectId(),
+        "description": data.description,
+        "amount": round(data.amount, 2),
+        "created_at": utcnow(),
+        "created_by": actor,
+    }
     doc = await get_db().folios.find_one_and_update(
         {"_id": oid, "status": "open"},
         [{"$set": {"charges": {"$concatArrays": ["$charges", [{"$literal": charge}]]}}}, _RECOMPUTE_TOTAL],
@@ -188,8 +203,12 @@ async def remove_charge(folio_id: str, charge_id: str, actor: str) -> FolioOut:
 
 
 async def revenue_since(since: datetime) -> float:
-    rows = await (await get_db().folios.aggregate([
-        {"$match": {"status": "closed", "closed_at": {"$gte": since}}},
-        {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}},
-    ])).to_list(1)
+    rows = await (
+        await get_db().folios.aggregate(
+            [
+                {"$match": {"status": "closed", "closed_at": {"$gte": since}}},
+                {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}},
+            ]
+        )
+    ).to_list(1)
     return float(rows[0]["total"]) if rows else 0.0

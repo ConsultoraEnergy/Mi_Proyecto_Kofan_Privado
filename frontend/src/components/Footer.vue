@@ -4,13 +4,14 @@ import { useConfigStore } from "@/stores/config";
 
 const configStore = useConfigStore();
 const lugar = computed(() => configStore.data.city || configStore.data.country);
-const direccion = computed(() => [configStore.data.address, configStore.data.city].filter(Boolean).join(", "));
+const direccion = computed(() =>
+  [configStore.data.address, configStore.data.city].filter(Boolean).join(", "),
+);
 </script>
 
 <template>
   <footer class="brand-footer mt-auto">
     <div class="container footer-grid">
-
       <div class="footer-brand">
         <h2 class="footer-logo mb-3">{{ configStore.hotelName }}</h2>
         <p>
@@ -18,20 +19,44 @@ const direccion = computed(() => [configStore.data.address, configStore.data.cit
         </p>
 
         <div class="social-links mt-4">
-          <a v-if="configStore.data.social_instagram" :href="configStore.data.social_instagram" target="_blank" rel="noopener" class="social-icon">
-            <font-awesome-icon :icon="['fab', 'instagram']" style="font-size: 1.3rem;" />
+          <a
+            v-if="configStore.data.social_instagram"
+            :href="configStore.data.social_instagram"
+            target="_blank"
+            rel="noopener"
+            class="social-icon"
+          >
+            <font-awesome-icon :icon="['fab', 'instagram']" style="font-size: 1.3rem" />
           </a>
 
-          <a v-if="configStore.data.social_facebook" :href="configStore.data.social_facebook" target="_blank" rel="noopener" class="social-icon">
-            <font-awesome-icon :icon="['fab', 'facebook']" style="font-size: 1.3rem;" />
+          <a
+            v-if="configStore.data.social_facebook"
+            :href="configStore.data.social_facebook"
+            target="_blank"
+            rel="noopener"
+            class="social-icon"
+          >
+            <font-awesome-icon :icon="['fab', 'facebook']" style="font-size: 1.3rem" />
           </a>
 
-          <a v-if="configStore.data.social_tiktok" :href="configStore.data.social_tiktok" target="_blank" rel="noopener" class="social-icon">
-            <font-awesome-icon :icon="['fab', 'tiktok']" style="font-size: 1.3rem;" />
+          <a
+            v-if="configStore.data.social_tiktok"
+            :href="configStore.data.social_tiktok"
+            target="_blank"
+            rel="noopener"
+            class="social-icon"
+          >
+            <font-awesome-icon :icon="['fab', 'tiktok']" style="font-size: 1.3rem" />
           </a>
 
-          <a v-if="configStore.whatsappLink" :href="configStore.whatsappLink" target="_blank" rel="noopener" class="social-icon whatsapp-icon">
-            <font-awesome-icon :icon="['fab', 'whatsapp']" style="font-size: 1.4rem;" />
+          <a
+            v-if="configStore.whatsappLink"
+            :href="configStore.whatsappLink"
+            target="_blank"
+            rel="noopener"
+            class="social-icon whatsapp-icon"
+          >
+            <font-awesome-icon :icon="['fab', 'whatsapp']" style="font-size: 1.4rem" />
           </a>
         </div>
       </div>
@@ -51,27 +76,40 @@ const direccion = computed(() => [configStore.data.address, configStore.data.cit
       <div class="footer-contact text-center text-md-start">
         <h3 class="mb-4 text-white">Contacto</h3>
 
-        <p v-if="direccion" class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
+        <p
+          v-if="direccion"
+          class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start"
+        >
           <font-awesome-icon :icon="['fas', 'location-dot']" class="me-3 text-white fs-5" />
           <span>{{ direccion }}</span>
         </p>
-        <p v-if="configStore.data.phone" class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start">
+        <p
+          v-if="configStore.data.phone"
+          class="mb-3 d-flex align-items-center justify-content-center justify-content-md-start"
+        >
           <font-awesome-icon :icon="['fas', 'phone']" class="me-3 text-white fs-5" />
           <span>{{ configStore.data.phone }}</span>
         </p>
-        <p v-if="configStore.data.contact_email" class="mb-0 d-flex align-items-center justify-content-center justify-content-md-start">
+        <p
+          v-if="configStore.data.contact_email"
+          class="mb-0 d-flex align-items-center justify-content-center justify-content-md-start"
+        >
           <font-awesome-icon :icon="['fas', 'envelope']" class="me-3 text-white fs-5" />
           <span>{{ configStore.data.contact_email }}</span>
         </p>
       </div>
-
     </div>
 
     <div class="footer-bottom mt-5">
       <div class="container">
         <hr class="footer-line" />
         <div class="bottom-flex">
-          <p class="mb-0">&copy; {{ new Date().getFullYear() }} {{ configStore.hotelName }}. Todos los derechos reservados.</p>
+          <p class="mb-0">
+            &copy; {{ new Date().getFullYear() }} {{ configStore.hotelName }}. Todos los derechos reservados.
+          </p>
+          <router-link :to="{ name: 'privacy-policy' }" class="policy-link"
+            >Política de tratamiento de datos</router-link
+          >
           <p v-if="lugar" class="mb-0">Hecho con ❤️ en {{ lugar }}</p>
         </div>
       </div>
@@ -194,7 +232,7 @@ const direccion = computed(() => [configStore.data.address, configStore.data.cit
 }
 
 .social-icon.whatsapp-icon:hover {
-  background: #25D366;
+  background: #25d366;
   color: white;
   transform: translateY(-5px);
 }
@@ -213,6 +251,15 @@ const direccion = computed(() => [configStore.data.address, configStore.data.cit
   opacity: 0.8;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.policy-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.policy-link:hover {
+  color: var(--k-apple) !important;
 }
 
 @media (max-width: 768px) {

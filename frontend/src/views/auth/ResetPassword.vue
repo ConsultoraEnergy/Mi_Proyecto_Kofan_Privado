@@ -26,7 +26,9 @@ const error = ref("");
 const mismatch = computed(() =>
   confirmPassword.value && password.value !== confirmPassword.value ? "Las contraseñas no coinciden" : "",
 );
-const isInvalid = computed(() => password.value.length < MIN_PASSWORD || password.value !== confirmPassword.value);
+const isInvalid = computed(
+  () => password.value.length < MIN_PASSWORD || password.value !== confirmPassword.value,
+);
 
 const submit = async () => {
   if (isInvalid.value) return;
@@ -48,7 +50,13 @@ const submit = async () => {
   <section class="auth-section d-flex align-items-center justify-content-center">
     <div class="auth-card p-4 p-lg-5">
       <div class="text-center mb-4">
-        <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="90" :alt="configStore.hotelName" class="auth-logo" />
+        <img
+          v-if="configStore.logoUrl"
+          :src="configStore.logoUrl"
+          width="90"
+          :alt="configStore.hotelName"
+          class="auth-logo"
+        />
         <font-awesome-icon v-else icon="fa-solid fa-leaf" class="auth-logo-icon" />
         <h3 class="mt-3 mb-2 auth-heading">Define tu nueva contraseña</h3>
         <p class="helper-text mb-0">Elige una contraseña segura de al menos 8 caracteres.</p>
@@ -65,7 +73,9 @@ const submit = async () => {
       <div v-else-if="done" class="text-center">
         <font-awesome-icon icon="fa-solid fa-circle-check" class="status-icon text-success mb-3" />
         <p class="mb-4">{{ successMessage }}</p>
-        <router-link :to="{ name: 'login' }" class="btn btn-brand auth-button w-100 py-2">Iniciar sesión</router-link>
+        <router-link :to="{ name: 'login' }" class="btn btn-brand auth-button w-100 py-2"
+          >Iniciar sesión</router-link
+        >
       </div>
 
       <form v-else @submit.prevent="submit">

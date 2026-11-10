@@ -23,7 +23,10 @@ const indiceFotoActiva = ref(0);
 const imagenes = computed(() => {
   const { images, main_image: mainImage } = props.habitacion;
   if (images?.length) {
-    const ordenadas = mainImage && images.includes(mainImage) ? [mainImage, ...images.filter((i) => i !== mainImage)] : images;
+    const ordenadas =
+      mainImage && images.includes(mainImage)
+        ? [mainImage, ...images.filter((i) => i !== mainImage)]
+        : images;
     return ordenadas.slice(0, 5).map(assetUrl);
   }
   if (mainImage) return [assetUrl(mainImage)];
@@ -47,16 +50,16 @@ const anteriorFoto = () => {
 // --- DATOS Y FORMATEO ---
 const mapaIconos = {
   "Aire Acondicionado": ["fas", "snowflake"],
-  "Ventilador": ["fas", "fan"],
-  "Televisión": ["fas", "tv"],
-  "Wifi": ["fas", "wifi"],
+  Ventilador: ["fas", "fan"],
+  Televisión: ["fas", "tv"],
+  Wifi: ["fas", "wifi"],
   "Baño Privado": ["fas", "droplet"],
   "Nevera / Minibar": ["fas", "martini-glass"],
   "Zonas Verdes": ["fas", "tree"],
   "Vista a la Selva": ["fas", "binoculars"],
   "Malla Catamarán": ["fas", "table-cells-large"],
   "Tina / Jacuzzi": ["fas", "hot-tub-person"],
-  "Balcón": ["fas", "door-open"],
+  Balcón: ["fas", "door-open"],
 };
 
 const amenidadesSeguras = computed(() => props.habitacion.amenities || []);
@@ -82,16 +85,22 @@ defineExpose({ abrirDetalles });
 
 <template>
   <div>
-    <div 
+    <div
       class="minimalist-item h-100 d-flex flex-column"
-      @mouseenter="isHovered = true" 
+      @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
     >
       <div class="image-square position-relative bg-dark shadow-sm">
-        <img :src="imagenes[0]" class="w-100 h-100 foto-cover" :alt="habitacion.name">
-        
-        <div class="hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" :class="{ 'show-overlay': isHovered }">
-          <button @click="abrirDetalles" class="btn btn-light rounded-0 px-4 py-2 fw-bold shadow-sm btn-explorar">
+        <img :src="imagenes[0]" class="w-100 h-100 foto-cover" :alt="habitacion.name" />
+
+        <div
+          class="hover-overlay position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+          :class="{ 'show-overlay': isHovered }"
+        >
+          <button
+            class="btn btn-light rounded-0 px-4 py-2 fw-bold shadow-sm btn-explorar"
+            @click="abrirDetalles"
+          >
             <font-awesome-icon :icon="['fas', 'eye']" class="me-2 text-success" /> Ver Detalles
           </button>
         </div>
@@ -99,43 +108,63 @@ defineExpose({ abrirDetalles });
 
       <div class="info-block mt-3 d-flex flex-column flex-grow-1">
         <h3 class="titulo-minimalista fw-bold mb-3 text-truncate">{{ habitacion.name }}</h3>
-        
+
         <div class="mt-auto d-flex justify-content-between align-items-end">
           <div>
             <span class="precio-destacado fw-bold">{{ formatMoney(habitacion.price_per_night) }}</span>
             <span class="text-muted small"> /noche</span>
           </div>
-          <button @click="handleReservar" class="btn btn-link p-0 btn-reservar-link text-decoration-none fw-bold">
+          <button
+            class="btn btn-link p-0 btn-reservar-link text-decoration-none fw-bold"
+            @click="handleReservar"
+          >
             Reservar <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-1 small" />
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="mostrarDetalles" class="modal-overlay d-flex justify-content-center align-items-center" @click.self="cerrarDetalles">
-      <div class="modal-brand bg-white rounded-0 overflow-hidden shadow-lg d-flex flex-column flex-lg-row position-relative">
-        
-        <button class="btn-close-modal position-absolute top-0 end-0 m-3 z-3 bg-white rounded-circle shadow-sm" @click="cerrarDetalles">
+    <div
+      v-if="mostrarDetalles"
+      class="modal-overlay d-flex justify-content-center align-items-center"
+      @click.self="cerrarDetalles"
+    >
+      <div
+        class="modal-brand bg-white rounded-0 overflow-hidden shadow-lg d-flex flex-column flex-lg-row position-relative"
+      >
+        <button
+          class="btn-close-modal position-absolute top-0 end-0 m-3 z-3 bg-white rounded-circle shadow-sm"
+          @click="cerrarDetalles"
+        >
           <font-awesome-icon :icon="['fas', 'xmark']" class="fs-5 text-dark" />
         </button>
 
         <div class="modal-gallery col-12 col-lg-6 position-relative bg-dark">
-          <img :src="fotoPrincipal" class="w-100 h-100 foto-cover" :alt="habitacion.name">
-          
-          <button v-if="imagenes.length > 1" @click="anteriorFoto" class="btn-nav-modal position-absolute top-50 start-0 translate-middle-y ms-3">
+          <img :src="fotoPrincipal" class="w-100 h-100 foto-cover" :alt="habitacion.name" />
+
+          <button
+            v-if="imagenes.length > 1"
+            class="btn-nav-modal position-absolute top-50 start-0 translate-middle-y ms-3"
+            @click="anteriorFoto"
+          >
             <font-awesome-icon :icon="['fas', 'chevron-left']" class="fs-3 text-white drop-shadow" />
           </button>
-          <button v-if="imagenes.length > 1" @click="siguienteFoto" class="btn-nav-modal position-absolute top-50 end-0 translate-middle-y me-3">
+          <button
+            v-if="imagenes.length > 1"
+            class="btn-nav-modal position-absolute top-50 end-0 translate-middle-y me-3"
+            @click="siguienteFoto"
+          >
             <font-awesome-icon :icon="['fas', 'chevron-right']" class="fs-3 text-white drop-shadow" />
           </button>
         </div>
 
         <div class="modal-info col-12 col-lg-6 p-4 p-lg-5 d-flex flex-column overflow-y-auto">
           <h2 class="titulo-modal fw-bold mb-3">{{ habitacion.name }}</h2>
-          
+
           <div class="d-flex flex-wrap gap-3 mb-4 text-muted small">
             <span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-0">
-              <font-awesome-icon :icon="['fas', 'user-group']" class="me-1" /> Hasta {{ habitacion.capacity }} personas
+              <font-awesome-icon :icon="['fas', 'user-group']" class="me-1" /> Hasta
+              {{ habitacion.capacity }} personas
             </span>
             <span v-if="habitacion.bedrooms" class="d-flex align-items-center">
               <font-awesome-icon :icon="['fas', 'door-open']" class="me-1" /> {{ habitacion.bedrooms }} Hab.
@@ -150,30 +179,42 @@ defineExpose({ abrirDetalles });
           <h5 class="fw-bold mb-3">Servicios incluidos</h5>
           <div class="row row-cols-2 g-3 mb-4 flex-grow-1">
             <template v-if="amenidadesSeguras.length > 0">
-              <div v-for="(amenidad, index) in amenidadesSeguras" :key="index" class="col d-flex align-items-center text-muted small">
-                <font-awesome-icon :icon="mapaIconos[amenidad] || ['fas', 'check']" class="text-success me-2 fs-6" />
+              <div
+                v-for="(amenidad, index) in amenidadesSeguras"
+                :key="index"
+                class="col d-flex align-items-center text-muted small"
+              >
+                <font-awesome-icon
+                  :icon="mapaIconos[amenidad] || ['fas', 'check']"
+                  class="text-success me-2 fs-6"
+                />
                 {{ amenidad }}
               </div>
             </template>
             <template v-else>
-              <div class="col-12 text-muted fst-italic small">Detalles básicos incluidos. Consulta en recepción.</div>
+              <div class="col-12 text-muted fst-italic small">
+                Detalles básicos incluidos. Consulta en recepción.
+              </div>
             </template>
           </div>
 
           <div class="mt-auto pt-4 border-top d-flex justify-content-between align-items-center">
             <div>
-              <p class="mb-0 text-muted small text-uppercase" style="letter-spacing: 1px;">Precio por noche</p>
-              <span class="fs-3 fw-bold text-success-brand">{{ formatMoney(habitacion.price_per_night) }}</span>
+              <p class="mb-0 text-muted small text-uppercase" style="letter-spacing: 1px">Precio por noche</p>
+              <span class="fs-3 fw-bold text-success-brand">{{
+                formatMoney(habitacion.price_per_night)
+              }}</span>
             </div>
-            <button @click="handleReservar" class="btn btn-reservar-modal px-4 py-2 rounded-0 shadow-sm fw-bold">
+            <button
+              class="btn btn-reservar-modal px-4 py-2 rounded-0 shadow-sm fw-bold"
+              @click="handleReservar"
+            >
               Reservar ahora <font-awesome-icon :icon="['fas', 'arrow-right']" class="ms-2" />
             </button>
           </div>
         </div>
-
       </div>
     </div>
-
   </div>
 </template>
 
@@ -185,7 +226,7 @@ defineExpose({ abrirDetalles });
   transition: transform 0.3s ease;
 }
 .minimalist-item:hover {
-  transform: translateY(-4px); 
+  transform: translateY(-4px);
 }
 
 .image-square {
@@ -198,15 +239,15 @@ defineExpose({ abrirDetalles });
 }
 
 .info-block {
-  background: transparent; 
-  padding: 0 4px; 
+  background: transparent;
+  padding: 0 4px;
 }
 
 .hover-overlay {
-  background: rgba(15, 59, 42, 0.4); 
+  background: rgba(15, 59, 42, 0.4);
   opacity: 0;
   transition: opacity 0.3s ease;
-  pointer-events: none; 
+  pointer-events: none;
 }
 .show-overlay {
   opacity: 1;
@@ -215,9 +256,11 @@ defineExpose({ abrirDetalles });
 
 .btn-explorar {
   transform: translateY(15px);
-  transition: transform 0.3s ease, background-color 0.2s;
+  transition:
+    transform 0.3s ease,
+    background-color 0.2s;
   color: #0f3b2a;
-  border-radius: 0 !important; 
+  border-radius: 0 !important;
 }
 .show-overlay .btn-explorar {
   transform: translateY(0);
@@ -229,7 +272,7 @@ defineExpose({ abrirDetalles });
 .titulo-minimalista {
   font-size: 1.2rem;
   color: #0f3b2a;
-  text-transform: uppercase; 
+  text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.5px;
 }
@@ -241,11 +284,13 @@ defineExpose({ abrirDetalles });
 
 .btn-reservar-link {
   color: #114232;
-  transition: color 0.2s ease, transform 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 .btn-reservar-link:hover {
   color: #1a5c46;
-  transform: translateX(3px); 
+  transform: translateX(3px);
 }
 
 /* ================================
@@ -275,13 +320,13 @@ defineExpose({ abrirDetalles });
 }
 
 .modal-info {
-  background-color: #fafaf9; 
+  background-color: #fafaf9;
   max-height: 90vh;
 }
 
 .titulo-modal {
   color: #0f3b2a;
-  font-family: 'Handlee', cursive;
+  font-family: "Handlee", cursive;
   font-size: 2rem;
 }
 
@@ -298,7 +343,9 @@ defineExpose({ abrirDetalles });
   background-color: #114232;
   color: white;
   border: none;
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.2s ease;
 }
 .btn-reservar-modal:hover {
   background-color: #1a5c46;
@@ -315,7 +362,7 @@ defineExpose({ abrirDetalles });
   transform: scale(1.2);
 }
 .drop-shadow {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
 }
 
 .btn-close-modal {
@@ -334,13 +381,29 @@ defineExpose({ abrirDetalles });
 }
 
 @keyframes modalFadeIn {
-  from { opacity: 0; transform: translateY(20px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 991px) {
-  .modal-brand { flex-direction: column; max-height: 95vh; }
-  .modal-gallery { height: 250px; min-height: 250px; flex-shrink: 0; }
-  .modal-info { flex-grow: 1; overflow-y: auto; }
+  .modal-brand {
+    flex-direction: column;
+    max-height: 95vh;
+  }
+  .modal-gallery {
+    height: 250px;
+    min-height: 250px;
+    flex-shrink: 0;
+  }
+  .modal-info {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
 }
 </style>

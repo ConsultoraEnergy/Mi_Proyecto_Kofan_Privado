@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (lint, tipos, pruebas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mongo:
+        image: mongo:8.0
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      MONGO_TEST_URI: mongodb://localhost:27017/?serverSelectionTimeoutMS=5000
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.13.7"
+          enable-cache: true
+
+      - name: Instalar dependencias (lockfile congelado)
+        run: uv sync --frozen
+
+      - name: Ruff (lint)
+        run: uv run ruff check --output-format=github .
+
+      - name: Ruff (formato)
+        run: uv run ruff format --check .
+
+      - name: mypy
+        run: uv run mypy
+
+      - name: Pruebas con cobertura
+        run: uv run pytest --cov=backend/app --cov-report=term-missing:skip-covered --cov-report=xml
+
+      - name: Cobertura mínima en módulos críticos (auth y bookings >= 70 %)
+        run: >-
+          uv run coverage report --fail-under=70
+          --include="backend/app/modules/bookings/*,backend/app/modules/auth/*"
+
+      - name: Cobertura mínima total (>= 85 %)
+        run: uv run coverage report --fail-under=85
+
+  frontend:
+    name: Frontend (lint, formato, pruebas, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    name: Imágenes Docker (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validar docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Construir imágenes api y web
+        run: docker compose build
+
+      - name: Levantar el stack y comprobar salud
+        run: |
+          docker compose up -d --wait --wait-timeout 120
+          curl --fail --silent --show-error http://localhost:8080/ > /dev/null
+          docker compose exec -T api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=5).read().decode())"
+          curl --fail --silent --show-error http://localhost:8080/api/v1/settings > /dev/null
+
+      - name: Logs si falló
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Apagar
+        if: always()
+        run: docker compose down -v

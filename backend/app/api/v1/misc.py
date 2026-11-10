@@ -1,4 +1,5 @@
 """Routers pequeños: folios, galería, ajustes del sitio, dashboard, notificaciones y auditoría."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status

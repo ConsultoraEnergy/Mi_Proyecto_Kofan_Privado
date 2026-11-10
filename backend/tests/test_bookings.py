@@ -17,6 +17,7 @@ async def _status(api, headers, booking_id, status, reason=None):
 # Creación y precio (5.3)
 # ---------------------------------------------------------------------------
 
+
 async def test_precio_lo_calcula_el_servidor(api, db, room):
     response = await web_booking(api, room, future(10), future(13), total_amount="1", price_per_night="1")
     assert response.status_code == 201, response.text
@@ -62,6 +63,7 @@ async def test_reserva_autenticada_queda_vinculada(api, client_user, client_head
 # Anti doble reserva (6.1)
 # ---------------------------------------------------------------------------
 
+
 async def test_solapamiento_responde_409_y_checkout_libre(api, room):
     assert (await web_booking(api, room, future(10), future(12))).status_code == 201
     choque = await web_booking(api, room, future(11), future(13))
@@ -71,9 +73,9 @@ async def test_solapamiento_responde_409_y_checkout_libre(api, room):
 
 
 async def test_reservas_concurrentes_solo_una_gana(api, db, room, storage_dirs):
-    respuestas = await asyncio.gather(*[
-        web_booking(api, room, future(20), future(23), email=f"persona{i}@example.com") for i in range(8)
-    ])
+    respuestas = await asyncio.gather(
+        *[web_booking(api, room, future(20), future(23), email=f"persona{i}@example.com") for i in range(8)]
+    )
     codigos = sorted(r.status_code for r in respuestas)
     assert codigos == [201] + [409] * 7, codigos
     assert await db.bookings.count_documents({}) == 1
@@ -91,6 +93,7 @@ async def test_cancelar_libera_las_noches(api, admin_headers, room):
 # ---------------------------------------------------------------------------
 # Máquina de estados (6.4)
 # ---------------------------------------------------------------------------
+
 
 async def test_transiciones_invalidas_son_rechazadas(api, admin_headers, room):
     booking = (await web_booking(api, room, future(1), future(2))).json()
@@ -119,9 +122,11 @@ async def test_rechazo_de_comprobante_y_nuevo_envio(api, anon, db, client_user, 
     aviso = await db.notifications.find_one({"user_id": client_user["_id"]})
     assert "el valor no coincide" in aviso["message"]
 
-    nuevo = await api.post(f"/bookings/{booking['id']}/receipt",
-                           files={"receipt": ("nuevo.png", make_png(color=(1, 2, 3)), "image/png")},
-                           headers=client_headers)
+    nuevo = await api.post(
+        f"/bookings/{booking['id']}/receipt",
+        files={"receipt": ("nuevo.png", make_png(color=(1, 2, 3)), "image/png")},
+        headers=client_headers,
+    )
     assert nuevo.status_code == 200, nuevo.text
     assert nuevo.json()["status"] == "pending_verification"
     assert nuevo.json()["payment_due_at"] is None
@@ -137,19 +142,28 @@ async def test_flujo_completo_con_folio(api, admin_headers, db, room):
     folio = (await api.get(f"/folios/by-booking/{bid}", headers=admin_headers)).json()
     assert folio["number"] == 1 and folio["status"] == "open" and folio["total_amount"] == 400000
 
-    folio = (await api.post(f"/folios/{folio['id']}/charges", json={"description": "Cena", "amount": 50000},
-                            headers=admin_headers)).json()
-    folio = (await api.post(f"/folios/{folio['id']}/charges", json={"description": "Lavandería", "amount": 20000},
-                            headers=admin_headers)).json()
+    folio = (
+        await api.post(
+            f"/folios/{folio['id']}/charges", json={"description": "Cena", "amount": 50000}, headers=admin_headers
+        )
+    ).json()
+    folio = (
+        await api.post(
+            f"/folios/{folio['id']}/charges", json={"description": "Lavandería", "amount": 20000}, headers=admin_headers
+        )
+    ).json()
     assert folio["total_amount"] == 470000
-    folio = (await api.delete(f"/folios/{folio['id']}/charges/{folio['charges'][1]['id']}", headers=admin_headers)).json()
+    folio = (
+        await api.delete(f"/folios/{folio['id']}/charges/{folio['charges'][1]['id']}", headers=admin_headers)
+    ).json()
     assert folio["total_amount"] == 450000
 
     assert (await _status(api, admin_headers, bid, "checked_out")).status_code == 200
     folio = (await api.get(f"/folios/by-booking/{bid}", headers=admin_headers)).json()
     assert folio["status"] == "closed"
-    cerrado = await api.post(f"/folios/{folio['id']}/charges", json={"description": "Tarde", "amount": 1000},
-                             headers=admin_headers)
+    cerrado = await api.post(
+        f"/folios/{folio['id']}/charges", json={"description": "Tarde", "amount": 1000}, headers=admin_headers
+    )
     assert cerrado.status_code == 409
 
     # Salida anticipada: las noches desde hoy quedan libres
@@ -177,12 +191,15 @@ async def test_numeracion_de_folios_es_consecutiva(api, admin_headers, db, room_
 # Vencimiento del plazo de pago (6.2)
 # ---------------------------------------------------------------------------
 
+
 async def test_bot_solo_cancela_pendientes_de_pago_vencidas(api, admin_headers, db, room_types):
     rooms = [await create_room(db, room_types["single"], f"7{i}", 100000) for i in range(3)]
     vencida, vigente, por_verificar = [(await web_booking(api, r, future(3), future(4))).json()["id"] for r in rooms]
     for bid in (vencida, vigente):
         await _status(api, admin_headers, bid, "pending_payment", "comprobante ilegible")
-    await db.bookings.update_one({"_id": ObjectId(vencida)}, {"$set": {"payment_due_at": utcnow() - timedelta(minutes=1)}})
+    await db.bookings.update_one(
+        {"_id": ObjectId(vencida)}, {"$set": {"payment_due_at": utcnow() - timedelta(minutes=1)}}
+    )
 
     assert await expire_unpaid_bookings() == 1
     estados = {str(b["_id"]): b["status"] for b in await db.bookings.find().to_list(None)}
@@ -193,6 +210,7 @@ async def test_bot_solo_cancela_pendientes_de_pago_vencidas(api, admin_headers, 
 # ---------------------------------------------------------------------------
 # Edición de reservas
 # ---------------------------------------------------------------------------
+
 
 async def test_editar_fechas_valida_disponibilidad_y_recalcula(api, admin_headers, db, room):
     a = (await web_booking(api, room, future(10), future(12))).json()
@@ -214,8 +232,11 @@ async def test_editar_fechas_valida_disponibilidad_y_recalcula(api, admin_header
 
 async def test_precio_negociado_solo_para_admin(api, anon, admin_headers, receptionist_headers, room):
     payload = {
-        "room_id": str(room["_id"]), "check_in": future(30).isoformat(), "check_out": future(32).isoformat(),
-        "guest": {"full_name": "Convenio Empresa", "email": "convenio@example.com"}, "total_amount": 300000,
+        "room_id": str(room["_id"]),
+        "check_in": future(30).isoformat(),
+        "check_out": future(32).isoformat(),
+        "guest": {"full_name": "Convenio Empresa", "email": "convenio@example.com"},
+        "total_amount": 300000,
     }
     assert (await anon.post("/bookings/manual", json=payload, headers=receptionist_headers)).status_code == 403
     response = await anon.post("/bookings/manual", json=payload, headers=admin_headers)
@@ -227,7 +248,9 @@ async def test_precio_negociado_solo_para_admin(api, anon, admin_headers, recept
 
 async def test_recepcion_crea_reserva_manual_con_tarifa(anon, receptionist_headers, room):
     payload = {
-        "room_id": str(room["_id"]), "check_in": future(1).isoformat(), "check_out": future(2).isoformat(),
+        "room_id": str(room["_id"]),
+        "check_in": future(1).isoformat(),
+        "check_out": future(2).isoformat(),
         "guest": {"full_name": "Walk In", "email": "walkin@example.com"},
         "companions": [{"full_name": "Acompañante Uno", "relationship": "Pareja"}],
     }
@@ -240,6 +263,7 @@ async def test_recepcion_crea_reserva_manual_con_tarifa(anon, receptionist_heade
 # ---------------------------------------------------------------------------
 # Comprobantes privados (5.6) y acceso a reservas
 # ---------------------------------------------------------------------------
+
 
 async def test_acceso_a_comprobante_y_reserva(api, anon, db, admin_headers, receptionist_headers, client_headers, room):
     booking = (await web_booking(api, room, future(2), future(3))).json()  # de un invitado
@@ -265,7 +289,9 @@ async def test_comprobante_no_es_publico(api, db, storage_dirs, room):
     assert (storage_dirs["private"] / key).exists()
     assert list(storage_dirs["public"].iterdir()) == []
     from httpx import ASGITransport, AsyncClient
+
     from backend.app.main import app
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as root:
         assert (await root.get(f"/static/uploads/{key}")).status_code == 404
 

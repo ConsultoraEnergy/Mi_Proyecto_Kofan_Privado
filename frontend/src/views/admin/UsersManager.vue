@@ -36,7 +36,8 @@ const totalPaginas = computed(() => Math.max(1, Math.ceil(totalUsuarios.value / 
 const documentoLabel = (tipo) => DOCUMENT_TYPES.find((d) => d.value === tipo)?.label || tipo || "";
 const esPropio = (user) => user.id === auth.user?.id;
 // Sin el permiso users:manage_staff no se pueden modificar cuentas del personal.
-const esIntocable = (user) => esPropio(user) || (STAFF_ROLES.includes(user.role) && !puedeGestionarPersonal.value);
+const esIntocable = (user) =>
+  esPropio(user) || (STAFF_ROLES.includes(user.role) && !puedeGestionarPersonal.value);
 
 const cargarUsuarios = async () => {
   try {
@@ -132,7 +133,7 @@ const toggleEstado = async (user) => {
     confirmButtonColor: colorBoton,
     cancelButtonColor: "#6c757d",
     confirmButtonText: `Sí, ${accion.toLowerCase()}`,
-    cancelButtonText: "Cancelar"
+    cancelButtonText: "Cancelar",
   });
 
   if (!result.isConfirmed) return;
@@ -145,12 +146,13 @@ const toggleEstado = async (user) => {
   }
 };
 
-onMounted(() => { cargarUsuarios(); });
+onMounted(() => {
+  cargarUsuarios();
+});
 </script>
 
 <template>
   <div class="users-manager p-1">
-
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
       <div>
         <h4 class="fw-bold mb-1 text-dark">Gestión de Usuarios</h4>
@@ -202,18 +204,22 @@ onMounted(() => { cargarUsuarios(); });
             </tr>
 
             <tr v-else-if="usuarios.length === 0">
-               <td colspan="6" class="text-center py-5 text-muted">
-                 <font-awesome-icon icon="fa-solid fa-ban" class="display-4 mb-3 d-block mx-auto text-secondary" />
-                 No se encontraron usuarios registrados.
-               </td>
+              <td colspan="6" class="text-center py-5 text-muted">
+                <font-awesome-icon
+                  icon="fa-solid fa-ban"
+                  class="display-4 mb-3 d-block mx-auto text-secondary"
+                />
+                No se encontraron usuarios registrados.
+              </td>
             </tr>
 
             <template v-else>
-              <tr v-for="user in usuarios" :key="user.id" :class="{'opacity-50 bg-light': !user.is_active}">
-
+              <tr v-for="user in usuarios" :key="user.id" :class="{ 'opacity-50 bg-light': !user.is_active }">
                 <td class="ps-4 fw-bold text-dark">
                   {{ user.full_name }}
-                  <span v-if="esPropio(user)" class="badge bg-light text-muted border ms-1 fw-normal">Tú</span>
+                  <span v-if="esPropio(user)" class="badge bg-light text-muted border ms-1 fw-normal"
+                    >Tú</span
+                  >
                 </td>
 
                 <td>
@@ -234,7 +240,9 @@ onMounted(() => { cargarUsuarios(); });
                 <td>
                   <span
                     class="badge rounded-pill px-3 py-2 border"
-                    :class="user.role === 'client' ? 'bg-light text-secondary' : 'bg-dark text-white border-dark'"
+                    :class="
+                      user.role === 'client' ? 'bg-light text-secondary' : 'bg-dark text-white border-dark'
+                    "
                   >
                     <font-awesome-icon
                       :icon="ROLE_ICONS[user.role] || ROLE_ICONS.client"
@@ -248,45 +256,62 @@ onMounted(() => { cargarUsuarios(); });
                 <td>
                   <span
                     class="badge rounded-pill px-3 py-2"
-                    :class="user.is_active ? 'bg-success bg-opacity-10 text-success border border-success' : 'bg-danger bg-opacity-10 text-danger border border-danger'"
+                    :class="
+                      user.is_active
+                        ? 'bg-success bg-opacity-10 text-success border border-success'
+                        : 'bg-danger bg-opacity-10 text-danger border border-danger'
+                    "
                   >
-                    <font-awesome-icon :icon="user.is_active ? 'fa-solid fa-circle-check' : 'fa-solid fa-ban'" class="me-1" />
-                    {{ user.is_active ? 'Activo' : 'Suspendido' }}
+                    <font-awesome-icon
+                      :icon="user.is_active ? 'fa-solid fa-circle-check' : 'fa-solid fa-ban'"
+                      class="me-1"
+                    />
+                    {{ user.is_active ? "Activo" : "Suspendido" }}
                   </span>
                 </td>
 
                 <td v-if="puedeEditar" class="text-center align-middle">
                   <div class="d-flex justify-content-center gap-2">
                     <button
-                      @click="abrirEdicion(user)"
                       :disabled="esIntocable(user)"
                       class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px;"
+                      style="width: 35px; height: 35px"
                       :title="esPropio(user) ? 'Edita tu cuenta desde tu perfil' : 'Editar'"
+                      @click="abrirEdicion(user)"
                     >
                       <font-awesome-icon icon="fa-regular fa-pen-to-square" class="fs-6" />
                     </button>
 
                     <button
-                      @click="toggleEstado(user)"
                       :disabled="esIntocable(user)"
                       class="btn btn-sm rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px;"
+                      style="width: 35px; height: 35px"
                       :class="user.is_active ? 'btn-outline-danger' : 'btn-outline-success'"
-                      :title="esPropio(user) ? 'No puedes suspender tu propia cuenta' : (user.is_active ? 'Suspender' : 'Reactivar')"
+                      :title="
+                        esPropio(user)
+                          ? 'No puedes suspender tu propia cuenta'
+                          : user.is_active
+                            ? 'Suspender'
+                            : 'Reactivar'
+                      "
+                      @click="toggleEstado(user)"
                     >
-                      <font-awesome-icon :icon="user.is_active ? 'fa-solid fa-lock' : 'fa-solid fa-rotate'" class="fs-6" />
+                      <font-awesome-icon
+                        :icon="user.is_active ? 'fa-solid fa-lock' : 'fa-solid fa-rotate'"
+                        class="fs-6"
+                      />
                     </button>
                   </div>
                 </td>
-
               </tr>
             </template>
           </tbody>
         </table>
       </div>
 
-      <div class="card-footer bg-light border-top border-0 d-flex flex-column flex-md-row justify-content-between align-items-center p-3">
+      <div
+        class="card-footer bg-light border-top border-0 d-flex flex-column flex-md-row justify-content-between align-items-center p-3"
+      >
         <span class="text-muted small fw-bold mb-2 mb-md-0">
           Página {{ paginaActual }} de {{ totalPaginas }} · {{ totalUsuarios }} usuarios
         </span>
@@ -313,7 +338,7 @@ onMounted(() => { cargarUsuarios(); });
       v-if="mostrarModal"
       :show="true"
       :cargando="cargandoRegistro"
-      :usuarioEditando="usuarioSeleccionado"
+      :usuario-editando="usuarioSeleccionado"
       @cerrar="mostrarModal = false"
       @guardar="guardarUsuario"
     />

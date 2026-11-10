@@ -38,6 +38,7 @@ class Companion(_Strict):
 class WebBookingForm(BaseModel):
     """Formulario multipart de la reserva web (con comprobante adjunto aparte).
     No usa extra="forbid": FastAPI le pasa todos los campos del formulario, incluido el archivo."""
+
     model_config = ConfigDict(extra="ignore")
 
     room_id: str
@@ -128,6 +129,7 @@ class BookingOut(BaseModel):
 
 class BookingDetailOut(BookingOut):
     """Vista del personal: incluye auditoría de estados y quién la creó."""
+
     created_by: str | None = None
     status_history: list[StatusEvent] = []
 

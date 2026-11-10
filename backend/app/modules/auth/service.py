@@ -2,6 +2,7 @@
 Autenticación (5.4, 5.5, 5.9, 5.10, 5.12 y backlog Fase 1):
 login, refresh con rotación, logout, verificación de correo y recuperación de contraseña.
 """
+
 import logging
 from dataclasses import dataclass
 
@@ -26,7 +27,7 @@ INVALID_CREDENTIALS = "Correo o contraseña incorrectos"
 
 class TokenOut(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105 (esquema OAuth2, no un secreto)
     expires_in: int
     user: UserOut
 

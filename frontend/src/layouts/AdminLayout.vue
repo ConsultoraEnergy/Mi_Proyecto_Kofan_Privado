@@ -11,15 +11,40 @@ const configStore = useConfigStore();
 const router = useRouter();
 
 const operationLinks = [
-  { name: "admin-dashboard", label: "Inicio", icon: "fa-solid fa-seedling", permission: PERMISSIONS.DASHBOARD_READ },
-  { name: "admin-bookings", label: "Reservas", icon: "fa-solid fa-calendar-check", permission: PERMISSIONS.BOOKINGS_READ_ALL },
-  { name: "admin-rooms", label: "Habitaciones", icon: "fa-solid fa-bed", permission: PERMISSIONS.ROOMS_READ_ALL },
+  {
+    name: "admin-dashboard",
+    label: "Inicio",
+    icon: "fa-solid fa-seedling",
+    permission: PERMISSIONS.DASHBOARD_READ,
+  },
+  {
+    name: "admin-bookings",
+    label: "Reservas",
+    icon: "fa-solid fa-calendar-check",
+    permission: PERMISSIONS.BOOKINGS_READ_ALL,
+  },
+  {
+    name: "admin-rooms",
+    label: "Habitaciones",
+    icon: "fa-solid fa-bed",
+    permission: PERMISSIONS.ROOMS_READ_ALL,
+  },
   { name: "admin-users", label: "Usuarios", icon: "fa-solid fa-users", permission: PERMISSIONS.USERS_READ },
 ];
 
 const supportLinks = [
-  { name: "admin-gallery", label: "Galería", icon: "fa-solid fa-images", permission: PERMISSIONS.GALLERY_WRITE },
-  { name: "admin-config", label: "Configuración", icon: "fa-solid fa-hotel", permission: PERMISSIONS.SETTINGS_WRITE },
+  {
+    name: "admin-gallery",
+    label: "Galería",
+    icon: "fa-solid fa-images",
+    permission: PERMISSIONS.GALLERY_WRITE,
+  },
+  {
+    name: "admin-config",
+    label: "Configuración",
+    icon: "fa-solid fa-hotel",
+    permission: PERMISSIONS.SETTINGS_WRITE,
+  },
 ];
 
 const visibleOperation = computed(() => operationLinks.filter((l) => auth.can(l.permission)));
@@ -39,7 +64,13 @@ onMounted(() => {
   <div class="admin-wrapper d-flex">
     <aside class="admin-sidebar p-3 shadow-sm">
       <div class="text-center mb-4 sidebar-brand">
-        <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="150" alt="Logo" class="brand-logo" />
+        <img
+          v-if="configStore.logoUrl"
+          :src="configStore.logoUrl"
+          width="150"
+          alt="Logo"
+          class="brand-logo"
+        />
         <p class="brand-handmade mt-2 mb-1 text-white">Hospitalidad Serena</p>
         <h5 class="section-title mb-0 text-white">{{ configStore.hotelName }} Admin</h5>
       </div>
@@ -67,10 +98,7 @@ onMounted(() => {
           <font-awesome-icon :icon="link.icon" class="me-2" /> <span>{{ link.label }}</span>
         </router-link>
 
-        <button
-          @click="handleLogout"
-          class="btn btn-logout-soft w-100 mt-3 shadow-sm"
-        >
+        <button class="btn btn-logout-soft w-100 mt-3 shadow-sm" @click="handleLogout">
           <font-awesome-icon icon="fa-solid fa-right-from-bracket" class="me-2" /> <span>Salir</span>
         </button>
       </nav>
@@ -172,7 +200,7 @@ onMounted(() => {
   background-color: var(--k-danger-soft);
   color: var(--k-danger);
   border: 1px solid var(--k-danger-border);
-  font-family: 'Handlee', cursive;
+  font-family: "Handlee", cursive;
   font-weight: 600;
   transition: all 0.3s ease;
   display: flex;

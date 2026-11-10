@@ -25,8 +25,12 @@ from backend.app.modules.rooms.schemas import (
 
 def type_to_out(doc: dict) -> RoomTypeOut:
     return RoomTypeOut(
-        id=str(doc["_id"]), code=doc["code"], name=doc["name"], description=doc.get("description", ""),
-        is_active=doc.get("is_active", True), sort_order=doc.get("sort_order", 0),
+        id=str(doc["_id"]),
+        code=doc["code"],
+        name=doc["name"],
+        description=doc.get("description", ""),
+        is_active=doc.get("is_active", True),
+        sort_order=doc.get("sort_order", 0),
     )
 
 
@@ -59,6 +63,7 @@ async def _with_types(docs: list[dict]) -> list[RoomOut]:
 # ---------------------------------------------------------------------------
 # Tipos de habitación
 # ---------------------------------------------------------------------------
+
 
 async def list_types(include_inactive: bool) -> list[RoomTypeOut]:
     return [type_to_out(d) for d in await repository.list_types(include_inactive)]
@@ -93,6 +98,7 @@ async def _require_type(type_id: str) -> dict:
 # Habitaciones
 # ---------------------------------------------------------------------------
 
+
 async def _get_doc(room_id: str, *, include_inactive: bool) -> dict:
     oid = parse_object_id(room_id)
     room = await repository.get(oid) if oid else None
@@ -101,17 +107,22 @@ async def _get_doc(room_id: str, *, include_inactive: bool) -> dict:
     return room
 
 
-async def list_rooms(*, include_inactive: bool, room_type: str | None, q: str | None, page: int, limit: int) -> RoomPage:
+async def list_rooms(
+    *, include_inactive: bool, room_type: str | None, q: str | None, page: int, limit: int
+) -> RoomPage:
     type_id = None
     if room_type:
+        type_oid = parse_object_id(room_type)
         found = await repository.get_type_by_code(room_type) or (
-            await repository.get_type(parse_object_id(room_type)) if parse_object_id(room_type) else None
+            await repository.get_type(type_oid) if type_oid else None
         )
         if not found:
             return RoomPage(items=[], total=0, page=page, limit=limit)
         type_id = found["_id"]
     skip, limit = page_params(page, limit)
-    docs, total = await repository.search(include_inactive=include_inactive, room_type_id=type_id, q=q, skip=skip, limit=limit)
+    docs, total = await repository.search(
+        include_inactive=include_inactive, room_type_id=type_id, q=q, skip=skip, limit=limit
+    )
     return RoomPage(items=await _with_types(docs), total=total, page=page, limit=limit)
 
 
@@ -122,14 +133,16 @@ async def get_room(room_id: str, *, include_inactive: bool) -> RoomOut:
 
 async def create_room(actor: dict, data: RoomIn) -> RoomOut:
     room_type = await _require_type(data.room_type_id)
-    doc = await repository.insert({
-        **data.model_dump(mode="json", exclude={"room_type_id"}),
-        "room_type_id": room_type["_id"],
-        "images": [],
-        "main_image": None,
-        "created_by": actor["email"],
-        "updated_by": actor["email"],
-    })
+    doc = await repository.insert(
+        {
+            **data.model_dump(mode="json", exclude={"room_type_id"}),
+            "room_type_id": room_type["_id"],
+            "images": [],
+            "main_image": None,
+            "created_by": actor["email"],
+            "updated_by": actor["email"],
+        }
+    )
     await audit.record("room", doc["_id"], "create", actor["email"], label=doc["name"])
     return to_out(doc, room_type)
 
@@ -144,8 +157,9 @@ async def update_room(actor: dict, room_id: str, data: RoomUpdate) -> RoomOut:
     if "main_image" in fields and fields["main_image"] not in before.get("images", []):
         raise ValidationFailed("La imagen principal debe ser una de las fotos de la habitación.")
     updated = await repository.update(before["_id"], {**fields, "updated_by": actor["email"]})
-    await audit.record("room", before["_id"], "update", actor["email"], label=before["name"],
-                       changes=audit.diff(before, fields))
+    await audit.record(
+        "room", before["_id"], "update", actor["email"], label=before["name"], changes=audit.diff(before, fields)
+    )
     return to_out(updated, await repository.get_type(updated["room_type_id"]))
 
 
@@ -168,8 +182,14 @@ async def add_images(actor: dict, room_id: str, files: list[UploadFile]) -> Room
     if not room.get("main_image"):
         set_fields["main_image"] = urls[0]
     updated = await repository.update(room["_id"], set_fields, {"$push": {"images": {"$each": urls}}})
-    await audit.record("room", room["_id"], "add_images", actor["email"], label=room["name"],
-                       changes=[{"field": "images", "old": None, "new": urls}])
+    await audit.record(
+        "room",
+        room["_id"],
+        "add_images",
+        actor["email"],
+        label=room["name"],
+        changes=[{"field": "images", "old": None, "new": urls}],
+    )
     return to_out(updated, await repository.get_type(updated["room_type_id"]))
 
 
@@ -184,8 +204,14 @@ async def remove_image(actor: dict, room_id: str, url: str) -> RoomOut:
         set_fields["main_image"] = remaining[0] if remaining else None
     updated = await repository.update(room["_id"], set_fields)
     await storage.delete_public_file(url)
-    await audit.record("room", room["_id"], "remove_image", actor["email"], label=room["name"],
-                       changes=[{"field": "images", "old": url, "new": None}])
+    await audit.record(
+        "room",
+        room["_id"],
+        "remove_image",
+        actor["email"],
+        label=room["name"],
+        changes=[{"field": "images", "old": url, "new": None}],
+    )
     return to_out(updated, await repository.get_type(updated["room_type_id"]))
 
 
@@ -193,12 +219,19 @@ async def remove_image(actor: dict, room_id: str, url: str) -> RoomOut:
 # Cotización y disponibilidad (públicas)
 # ---------------------------------------------------------------------------
 
+
 def _quote_out(room: dict, check_in: date, check_out: date) -> QuoteOut:
     q = pricing.quote(room["price_per_night"], check_in, check_out)
     return QuoteOut(
-        room_id=str(room["_id"]), check_in=check_in, check_out=check_out, nights=q.nights,
-        price_per_night=q.price_per_night, total_amount=q.total_amount, deposit_percent=q.deposit_percent,
-        deposit_amount=q.deposit_amount, currency=get_settings().currency,
+        room_id=str(room["_id"]),
+        check_in=check_in,
+        check_out=check_out,
+        nights=q.nights,
+        price_per_night=q.price_per_night,
+        total_amount=q.total_amount,
+        deposit_percent=q.deposit_percent,
+        deposit_amount=q.deposit_amount,
+        currency=get_settings().currency,
     )
 
 
@@ -214,6 +247,8 @@ async def find_availability(room_type_code: str, check_in: date, check_out: date
     occupied = await bookings_repository.occupied_room_ids(check_in, check_out)
     room = await repository.find_cheapest_available(room_type["_id"], guests, occupied)
     if not room:
-        raise NotFound(f"No hay habitaciones '{room_type['name']}' disponibles para {guests} huésped(es) en esas fechas.",
-                       code="no_availability")
+        raise NotFound(
+            f"No hay habitaciones '{room_type['name']}' disponibles para {guests} huésped(es) en esas fechas.",
+            code="no_availability",
+        )
     return AvailabilityOut(room=to_out(room, room_type), quote=_quote_out(room, check_in, check_out))

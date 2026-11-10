@@ -2,6 +2,7 @@
 Precio de una reserva (5.3 / RN-04): se calcula SIEMPRE en el backend a partir de la tarifa de la
 habitación. Fase 4: aquí se integrarán tarifas por temporada y estancia mínima.
 """
+
 from dataclasses import dataclass
 from datetime import date
 
@@ -40,5 +41,10 @@ def quote(price_per_night: float, check_in: date, check_out: date) -> Quote:
         raise Conflict("La habitación no tiene una tarifa válida configurada.")
     total = round(float(price_per_night) * nights, 2)
     percent, deposit = deposit_for(total)
-    return Quote(nights=nights, price_per_night=float(price_per_night), total_amount=total,
-                 deposit_percent=percent, deposit_amount=deposit)
+    return Quote(
+        nights=nights,
+        price_per_night=float(price_per_night),
+        total_amount=total,
+        deposit_percent=percent,
+        deposit_amount=deposit,
+    )

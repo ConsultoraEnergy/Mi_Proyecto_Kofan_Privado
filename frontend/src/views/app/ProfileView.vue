@@ -11,7 +11,9 @@ const configStore = useConfigStore();
 
 const user = computed(() => auth.user || {});
 const roleLabel = computed(() =>
-  user.value.role === "client" ? `Cliente ${configStore.hotelName}` : ROLE_LABELS[user.value.role] || "Cliente",
+  user.value.role === "client"
+    ? `Cliente ${configStore.hotelName}`
+    : ROLE_LABELS[user.value.role] || "Cliente",
 );
 const documentLabel = computed(() =>
   user.value.document_number ? `${user.value.document_type || ""} ${user.value.document_number}`.trim() : "",
@@ -35,7 +37,8 @@ const resolverIconoAviso = (icono) => {
   if (valor.includes("check")) return "fa-solid fa-circle-check";
   if (valor.includes("exclamation") || valor.includes("info")) return "fa-solid fa-circle-info";
   if (valor.includes("house") || valor.includes("door")) return "fa-solid fa-house-chimney";
-  if (valor.includes("x-circle") || valor.includes("ban") || valor.includes("cancel")) return "fa-solid fa-ban";
+  if (valor.includes("x-circle") || valor.includes("ban") || valor.includes("cancel"))
+    return "fa-solid fa-ban";
   return "fa-solid fa-bell";
 };
 
@@ -53,7 +56,9 @@ onMounted(cargarAvisosRecientes);
 
     <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden position-relative tarjeta-brand-suave">
       <div class="card-body p-4 p-md-5 position-relative z-1">
-        <span class="badge bg-white text-success rounded-pill mb-3 px-3 py-2 shadow-sm border border-success-subtle">
+        <span
+          class="badge bg-white text-success rounded-pill mb-3 px-3 py-2 shadow-sm border border-success-subtle"
+        >
           <font-awesome-icon icon="fa-solid fa-star" class="text-warning me-1" /> {{ roleLabel }}
         </span>
         <h3 class="fw-bold mb-2 verde-brand">{{ user.full_name || "Mi cuenta" }}</h3>
@@ -61,20 +66,33 @@ onMounted(cargarAvisosRecientes);
         <div class="d-flex flex-wrap gap-4 mt-3 verde-brand opacity-75 fw-medium">
           <span>
             <font-awesome-icon icon="fa-solid fa-envelope" class="me-2" /> {{ user.email }}
-            <span v-if="user.email_verified" class="badge bg-success-subtle text-success ms-1">Verificado</span>
+            <span v-if="user.email_verified" class="badge bg-success-subtle text-success ms-1"
+              >Verificado</span
+            >
             <span v-else class="badge bg-warning-subtle text-warning-emphasis ms-1">Sin verificar</span>
           </span>
-          <span v-if="documentLabel"><font-awesome-icon icon="fa-solid fa-id-card" class="me-2" /> {{ documentLabel }}</span>
-          <span v-if="user.phone"><font-awesome-icon icon="fa-solid fa-phone" class="me-2" /> {{ user.phone }}</span>
-          <span v-if="location"><font-awesome-icon icon="fa-solid fa-location-dot" class="me-2" /> {{ location }}</span>
+          <span v-if="documentLabel"
+            ><font-awesome-icon icon="fa-solid fa-id-card" class="me-2" /> {{ documentLabel }}</span
+          >
+          <span v-if="user.phone"
+            ><font-awesome-icon icon="fa-solid fa-phone" class="me-2" /> {{ user.phone }}</span
+          >
+          <span v-if="location"
+            ><font-awesome-icon icon="fa-solid fa-location-dot" class="me-2" /> {{ location }}</span
+          >
         </div>
       </div>
     </div>
 
     <div class="mt-5">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold text-dark"><font-awesome-icon icon="fa-solid fa-bell" class="text-muted me-2" /> Avisos Recientes</h5>
-        <router-link :to="{ name: 'account-notifications' }" class="btn btn-sm btn-link text-decoration-none text-success fw-bold">
+        <h5 class="fw-bold text-dark">
+          <font-awesome-icon icon="fa-solid fa-bell" class="text-muted me-2" /> Avisos Recientes
+        </h5>
+        <router-link
+          :to="{ name: 'account-notifications' }"
+          class="btn btn-sm btn-link text-decoration-none text-success fw-bold"
+        >
           Ver todos
         </router-link>
       </div>
@@ -120,6 +138,11 @@ onMounted(cargarAvisosRecientes);
   border: 1px solid var(--k-border) !important;
 }
 
-.aviso-card { transition: transform 0.2s ease; background-color: white; }
-.aviso-card:hover { transform: translateX(4px); }
+.aviso-card {
+  transition: transform 0.2s ease;
+  background-color: white;
+}
+.aviso-card:hover {
+  transform: translateX(4px);
+}
 </style>

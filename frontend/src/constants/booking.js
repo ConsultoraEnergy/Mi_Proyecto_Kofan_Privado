@@ -10,7 +10,11 @@ export const BOOKING_STATUS = Object.freeze({
 
 export const BOOKING_STATUS_META = Object.freeze({
   pending_payment: { label: "Pendiente de pago", badge: "bg-warning text-dark", icon: "fa-solid fa-clock" },
-  pending_verification: { label: "Pago por verificar", badge: "bg-info text-dark", icon: "fa-solid fa-receipt" },
+  pending_verification: {
+    label: "Pago por verificar",
+    badge: "bg-info text-dark",
+    icon: "fa-solid fa-receipt",
+  },
   confirmed: { label: "Confirmada", badge: "bg-success", icon: "fa-solid fa-circle-check" },
   checked_in: { label: "Huésped en el hotel", badge: "bg-primary", icon: "fa-solid fa-door-open" },
   checked_out: { label: "Finalizada", badge: "bg-secondary", icon: "fa-solid fa-check" },
@@ -29,7 +33,8 @@ export const BOOKING_TRANSITIONS = Object.freeze({
 
 /** Transiciones que exigen motivo (cancelar y rechazar comprobante). */
 export const requiresReason = (from, to) =>
-  to === BOOKING_STATUS.CANCELLED || (from === BOOKING_STATUS.PENDING_VERIFICATION && to === BOOKING_STATUS.PENDING_PAYMENT);
+  to === BOOKING_STATUS.CANCELLED ||
+  (from === BOOKING_STATUS.PENDING_VERIFICATION && to === BOOKING_STATUS.PENDING_PAYMENT);
 
 export const statusLabel = (status) => BOOKING_STATUS_META[status]?.label || status;
 export const canTransition = (from, to) => (BOOKING_TRANSITIONS[from] || []).includes(to);

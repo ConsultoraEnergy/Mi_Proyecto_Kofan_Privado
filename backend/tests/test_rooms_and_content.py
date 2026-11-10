@@ -18,8 +18,9 @@ async def test_crud_de_habitacion_con_tipo(api, admin_headers, room_types):
     dup = await api.post("/rooms", json=payload, headers=admin_headers)
     assert dup.status_code == 409
 
-    updated = await api.patch(f"/rooms/{room['id']}", json={"price_per_night": 160000, "is_active": False},
-                              headers=admin_headers)
+    updated = await api.patch(
+        f"/rooms/{room['id']}", json={"price_per_night": 160000, "is_active": False}, headers=admin_headers
+    )
     assert updated.json()["price_per_night"] == 160000
 
     assert (await api.get(f"/rooms/{room['id']}")).status_code == 404  # inactiva: oculta al público
@@ -32,9 +33,14 @@ async def test_crud_de_habitacion_con_tipo(api, admin_headers, room_types):
 
 
 async def test_tipo_inexistente_y_datos_invalidos(api, admin_headers, room_types):
-    sin_tipo = await api.post("/rooms", json={**ROOM, "room_type_id": "65a1b2c3d4e5f60718293a4b"}, headers=admin_headers)
-    precio_cero = await api.post("/rooms", json={**ROOM, "room_type_id": str(room_types["cabin"]["_id"]),
-                                                 "price_per_night": 0}, headers=admin_headers)
+    sin_tipo = await api.post(
+        "/rooms", json={**ROOM, "room_type_id": "65a1b2c3d4e5f60718293a4b"}, headers=admin_headers
+    )
+    precio_cero = await api.post(
+        "/rooms",
+        json={**ROOM, "room_type_id": str(room_types["cabin"]["_id"]), "price_per_night": 0},
+        headers=admin_headers,
+    )
     assert sin_tipo.status_code == 400
     assert precio_cero.status_code == 422
 
@@ -45,9 +51,19 @@ async def test_validador_de_mongo_rechaza_datos_corruptos(db, room_types):
     from pymongo.errors import WriteError
 
     with pytest.raises(WriteError):
-        await db.rooms.insert_one({"number": "1", "name": "X", "room_type_id": room_types["cabin"]["_id"],
-                                   "price_per_night": "barato", "capacity": "2", "is_active": "true",
-                                   "operational_status": "available", "images": [], "amenities": []})
+        await db.rooms.insert_one(
+            {
+                "number": "1",
+                "name": "X",
+                "room_type_id": room_types["cabin"]["_id"],
+                "price_per_night": "barato",
+                "capacity": "2",
+                "is_active": "true",
+                "operational_status": "available",
+                "images": [],
+                "amenities": [],
+            }
+        )
 
 
 async def test_no_se_elimina_habitacion_con_reservas(api, admin_headers, room):
@@ -57,8 +73,11 @@ async def test_no_se_elimina_habitacion_con_reservas(api, admin_headers, room):
 
 
 async def test_imagenes_de_habitacion(api, admin_headers, room, storage_dirs):
-    response = await api.post(f"/rooms/{room['_id']}/images", headers=admin_headers,
-                              files=[("files", ("a.png", make_png(), "image/png")), ("files", ("b.png", make_png(), "image/png"))])
+    response = await api.post(
+        f"/rooms/{room['_id']}/images",
+        headers=admin_headers,
+        files=[("files", ("a.png", make_png(), "image/png")), ("files", ("b.png", make_png(), "image/png"))],
+    )
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(body["images"]) == 2 and body["main_image"] == body["images"][0]
@@ -67,7 +86,9 @@ async def test_imagenes_de_habitacion(api, admin_headers, room, storage_dirs):
     assert removed.json()["main_image"] == body["images"][1]
     assert len(list(storage_dirs["public"].iterdir())) == 1
 
-    ajena = await api.delete(f"/rooms/{room['_id']}/images", params={"url": "/static/uploads/x.png"}, headers=admin_headers)
+    ajena = await api.delete(
+        f"/rooms/{room['_id']}/images", params={"url": "/static/uploads/x.png"}, headers=admin_headers
+    )
     assert ajena.status_code == 404
 
 
@@ -92,24 +113,31 @@ async def test_disponibilidad_elige_la_mas_barata_libre(api, db, room_types):
 
 
 async def test_cotizacion_publica(api, room):
-    response = await api.get(f"/rooms/{room['_id']}/quote",
-                             params={"check_in": future(1).isoformat(), "check_out": future(4).isoformat()})
+    response = await api.get(
+        f"/rooms/{room['_id']}/quote", params={"check_in": future(1).isoformat(), "check_out": future(4).isoformat()}
+    )
     assert response.json()["total_amount"] == 600000 and response.json()["deposit_amount"] == 300000
 
 
 # --- Subida de archivos (5.11) ---
 
+
 async def test_galeria_valida_y_recodifica(api, admin_headers, storage_dirs):
-    html = await api.post("/gallery", files={"file": ("x.png", b"<html><script>alert(1)</script>", "image/png")},
-                          headers=admin_headers)
+    html = await api.post(
+        "/gallery", files={"file": ("x.png", b"<html><script>alert(1)</script>", "image/png")}, headers=admin_headers
+    )
     assert html.status_code == 400
 
     exif = Image.Exif()
     exif[0x010F] = "CamaraSecreta"
     buffer = BytesIO()
     Image.new("RGB", (8, 8), (200, 10, 10)).save(buffer, "JPEG", exif=exif.tobytes())
-    ok = await api.post("/gallery", data={"category": "Habitaciones", "title": "Vista"},
-                        files={"file": ("foto.html", buffer.getvalue(), "text/html")}, headers=admin_headers)
+    ok = await api.post(
+        "/gallery",
+        data={"category": "Habitaciones", "title": "Vista"},
+        files={"file": ("foto.html", buffer.getvalue(), "text/html")},
+        headers=admin_headers,
+    )
     assert ok.status_code == 201, ok.text
     assert ok.json()["url"].endswith(".jpg") and ok.json()["category"] == "habitaciones"
     saved = storage_dirs["public"] / ok.json()["url"].rsplit("/", 1)[-1]
@@ -133,26 +161,43 @@ async def test_archivo_demasiado_grande(api, admin_headers, monkeypatch):
 async def test_comprobante_pdf_y_pdf_malicioso(api, room):
     pdf = b"%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\n%%EOF"
     malo = b"%PDF-1.4\n1 0 obj << /OpenAction << /S /JavaScript /JS (x) >> >> endobj\n%%EOF"
-    form = {"room_id": str(room["_id"]), "check_in": future(1).isoformat(), "check_out": future(2).isoformat(),
-            "full_name": "Pdf Prueba", "email": "pdf@example.com", "phone": "3000000000", "accept_privacy_policy": "true"}
-    assert (await api.post("/bookings", data=form, files={"receipt": ("p.pdf", malo, "application/pdf")})).status_code == 400
-    assert (await api.post("/bookings", data=form, files={"receipt": ("p.pdf", pdf, "application/pdf")})).status_code == 201
+    form = {
+        "room_id": str(room["_id"]),
+        "check_in": future(1).isoformat(),
+        "check_out": future(2).isoformat(),
+        "full_name": "Pdf Prueba",
+        "email": "pdf@example.com",
+        "phone": "3000000000",
+        "accept_privacy_policy": "true",
+    }
+    assert (
+        await api.post("/bookings", data=form, files={"receipt": ("p.pdf", malo, "application/pdf")})
+    ).status_code == 400
+    assert (
+        await api.post("/bookings", data=form, files={"receipt": ("p.pdf", pdf, "application/pdf")})
+    ).status_code == 201
 
 
 # --- Ajustes, dashboard y notificaciones ---
+
 
 async def test_ajustes_del_sitio(api, admin_headers, receptionist_headers):
     publicos = await api.get("/settings")
     assert publicos.json()["hotel_name"] == "Hotel Kawari" and publicos.json()["deposit_percent"] == 50
 
-    nuevo = {**{k: v for k, v in publicos.json().items() if k not in ("logo_url", "deposit_percent")},
-             "hotel_name": "Kawari Eco Lodge", "payment_instructions": "Bancolombia Ahorros 000-000"}
+    nuevo = {
+        **{k: v for k, v in publicos.json().items() if k not in ("logo_url", "deposit_percent")},
+        "hotel_name": "Kawari Eco Lodge",
+        "payment_instructions": "Bancolombia Ahorros 000-000",
+    }
     assert (await api.put("/settings", json=nuevo, headers=receptionist_headers)).status_code == 403
     response = await api.put("/settings", json=nuevo, headers=admin_headers)
     assert response.status_code == 200, response.text
     assert (await api.get("/settings")).json()["payment_instructions"] == "Bancolombia Ahorros 000-000"
 
-    logo = await api.post("/settings/logo", files={"file": ("logo.png", make_png(), "image/png")}, headers=admin_headers)
+    logo = await api.post(
+        "/settings/logo", files={"file": ("logo.png", make_png(), "image/png")}, headers=admin_headers
+    )
     assert logo.json()["logo_url"].startswith("/static/uploads/")
 
 
@@ -178,6 +223,7 @@ async def test_notificaciones(api, admin_headers, client_headers, room):
 
 
 # --- Seed ---
+
 
 async def test_seed_es_idempotente(db, monkeypatch):
     monkeypatch.setenv("SEED_ADMIN_EMAIL", "Dueno@Example.com")

@@ -32,7 +32,13 @@ const submit = async () => {
   <section class="auth-section d-flex align-items-center justify-content-center">
     <div class="auth-card p-4 p-lg-5">
       <div class="text-center mb-4">
-        <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="90" :alt="configStore.hotelName" class="auth-logo" />
+        <img
+          v-if="configStore.logoUrl"
+          :src="configStore.logoUrl"
+          width="90"
+          :alt="configStore.hotelName"
+          class="auth-logo"
+        />
         <font-awesome-icon v-else icon="fa-solid fa-leaf" class="auth-logo-icon" />
         <h3 class="mt-3 mb-2 auth-heading">¿Olvidaste tu contraseña?</h3>
         <p class="helper-text mb-0">Escribe tu correo y te enviaremos un enlace para crear una nueva.</p>
@@ -48,7 +54,9 @@ const submit = async () => {
         <div class="mb-4">
           <label class="form-label auth-label" for="forgot-email">Correo Electrónico</label>
           <div class="input-group auth-input-group">
-            <span class="input-group-text border-end-0"><font-awesome-icon icon="fa-solid fa-envelope" /></span>
+            <span class="input-group-text border-end-0"
+              ><font-awesome-icon icon="fa-solid fa-envelope"
+            /></span>
             <input
               id="forgot-email"
               v-model="email"

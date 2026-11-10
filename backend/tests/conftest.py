@@ -7,6 +7,7 @@ temporal, que se destruye al terminar. Cada prueba usa su propia base de datos.
 - Si existe la variable MONGO_TEST_URI, se usa ese servidor en lugar de lanzar uno.
 - Si no, se busca `mongod` en MONGOD_PATH, en el PATH o en C:\\Program Files\\MongoDB\\Server\\*\\bin.
 """
+
 import glob
 import os
 import re
@@ -21,30 +22,32 @@ from io import BytesIO
 from pathlib import Path
 
 # --- Entorno de prueba: se fija ANTES de importar la aplicación ---
-os.environ.update({
-    "APP_ENV": "test",
-    "SECRET_KEY": "test-secret-key-solo-para-pruebas-0123456789abcdef",
-    "MONGO_URI": "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100",  # nunca Atlas
-    "MONGO_DB_NAME": "kawari_test",
-    "SCHEDULER_ENABLED": "false",
-    "EMAIL_BACKEND": "console",
-    "FRONTEND_URL": "http://frontend.test",
-    "DEPOSIT_PERCENT": "50",
-    "BOOKING_PAYMENT_DEADLINE_HOURS": "48",
-})
+os.environ.update(
+    {
+        "APP_ENV": "test",
+        "SECRET_KEY": "test-secret-key-solo-para-pruebas-0123456789abcdef",
+        "MONGO_URI": "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=100",  # nunca Atlas
+        "MONGO_DB_NAME": "kawari_test",
+        "SCHEDULER_ENABLED": "false",
+        "EMAIL_BACKEND": "console",
+        "FRONTEND_URL": "http://frontend.test",
+        "DEPOSIT_PERCENT": "50",
+        "BOOKING_PAYMENT_DEADLINE_HOURS": "48",
+    }
+)
 
-import pytest  # noqa: E402
-import pytest_asyncio  # noqa: E402
-from httpx import ASGITransport, AsyncClient  # noqa: E402
-from PIL import Image  # noqa: E402
-from pymongo import MongoClient  # noqa: E402
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from PIL import Image
+from pymongo import MongoClient
 
-from backend.app.core.security import hash_password  # noqa: E402
-from backend.app.core.settings import get_settings  # noqa: E402
-from backend.app.core.time import hotel_today, utcnow  # noqa: E402
-from backend.app.db import client as mongo  # noqa: E402
-from backend.app.db.indexes import ensure_database  # noqa: E402
-from backend.app.modules.notifications import email as email_module  # noqa: E402
+from backend.app.core.security import hash_password
+from backend.app.core.settings import get_settings
+from backend.app.core.time import hotel_today, utcnow
+from backend.app.db import client as mongo
+from backend.app.db.indexes import ensure_database
+from backend.app.modules.notifications import email as email_module
 
 PASSWORD = "Clave-Segura-123"
 
@@ -52,6 +55,7 @@ PASSWORD = "Clave-Segura-123"
 # ---------------------------------------------------------------------------
 # Servidor MongoDB de pruebas
 # ---------------------------------------------------------------------------
+
 
 def _find_mongod() -> str | None:
     candidates = [os.getenv("MONGOD_PATH"), shutil.which("mongod")]
@@ -77,9 +81,20 @@ def mongo_uri():
     dbpath = tempfile.mkdtemp(prefix="kawari-mongo-")
     port = _free_port()
     process = subprocess.Popen(
-        [mongod, "--dbpath", dbpath, "--port", str(port), "--bind_ip", "127.0.0.1", "--quiet",
-         "--setParameter", "diagnosticDataCollectionEnabled=false"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        [
+            mongod,
+            "--dbpath",
+            dbpath,
+            "--port",
+            str(port),
+            "--bind_ip",
+            "127.0.0.1",
+            "--quiet",
+            "--setParameter",
+            "diagnosticDataCollectionEnabled=false",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     uri = f"mongodb://127.0.0.1:{port}/?serverSelectionTimeoutMS=2000"
     deadline = time.time() + 30
@@ -147,13 +162,29 @@ async def anon(db):
 # Datos de prueba
 # ---------------------------------------------------------------------------
 
-async def create_user(db, email: str, role: str = "client", *, verified: bool = True, active: bool = True,
-                      document: str | None = None, password: str = PASSWORD) -> dict:
+
+async def create_user(
+    db,
+    email: str,
+    role: str = "client",
+    *,
+    verified: bool = True,
+    active: bool = True,
+    document: str | None = None,
+    password: str = PASSWORD,
+) -> dict:
     doc = {
-        "email": email, "full_name": email.split("@")[0].title(), "password_hash": hash_password(password),
-        "role": role, "is_active": active, "email_verified": verified, "person_type": "natural",
-        "document_type": "CC" if document else None, "document_number": document,
-        "created_at": utcnow(), "updated_at": utcnow(),
+        "email": email,
+        "full_name": email.split("@")[0].title(),
+        "password_hash": hash_password(password),
+        "role": role,
+        "is_active": active,
+        "email_verified": verified,
+        "person_type": "natural",
+        "document_type": "CC" if document else None,
+        "document_number": document,
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
     }
     doc["_id"] = (await db.users.insert_one(doc)).inserted_id
     return doc
@@ -200,8 +231,15 @@ async def room_types(db):
     now = utcnow()
     types = {}
     for i, (code, name) in enumerate([("cabin", "Cabaña"), ("family", "Familiar"), ("single", "Individual")]):
-        doc = {"code": code, "name": name, "description": "", "is_active": True, "sort_order": i,
-               "created_at": now, "updated_at": now}
+        doc = {
+            "code": code,
+            "name": name,
+            "description": "",
+            "is_active": True,
+            "sort_order": i,
+            "created_at": now,
+            "updated_at": now,
+        }
         doc["_id"] = (await db.room_types.insert_one(doc)).inserted_id
         types[code] = doc
     return types
@@ -209,10 +247,22 @@ async def room_types(db):
 
 async def create_room(db, room_type: dict, number: str, price: float, capacity: int = 2, **extra) -> dict:
     doc = {
-        "number": number, "name": f"Habitación {number}", "room_type_id": room_type["_id"], "description": "",
-        "price_per_night": price, "capacity": capacity, "bedrooms": 1, "beds": "", "amenities": [],
-        "images": [], "main_image": None, "is_active": True, "operational_status": "available",
-        "created_at": utcnow(), "updated_at": utcnow(), **extra,
+        "number": number,
+        "name": f"Habitación {number}",
+        "room_type_id": room_type["_id"],
+        "description": "",
+        "price_per_night": price,
+        "capacity": capacity,
+        "bedrooms": 1,
+        "beds": "",
+        "amenities": [],
+        "images": [],
+        "main_image": None,
+        "is_active": True,
+        "operational_status": "available",
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
+        **extra,
     }
     doc["_id"] = (await db.rooms.insert_one(doc)).inserted_id
     return doc

@@ -6,6 +6,7 @@ Envío de correos. Backends:
 Los correos se envían en segundo plano (BackgroundTasks) para no bloquear la petición; un fallo de
 envío se registra pero no rompe el flujo del usuario.
 """
+
 import logging
 import smtplib
 import ssl
@@ -50,10 +51,14 @@ def _send_smtp(email: Email) -> None:
     message = _build_message(email)
     password = settings.smtp_password.get_secret_value() if settings.smtp_password else None
     context = ssl.create_default_context()
+    host = settings.smtp_host
+    if not host:  # Settings ya lo exige con EMAIL_BACKEND=smtp; defensa adicional
+        raise RuntimeError("SMTP_HOST no está configurado.")
+    server: smtplib.SMTP
     if settings.smtp_ssl:
-        server = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds, context=context)
+        server = smtplib.SMTP_SSL(host, settings.smtp_port, timeout=settings.smtp_timeout_seconds, context=context)
     else:
-        server = smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=settings.smtp_timeout_seconds)
+        server = smtplib.SMTP(host, settings.smtp_port, timeout=settings.smtp_timeout_seconds)
     with server:
         if settings.smtp_starttls and not settings.smtp_ssl:
             server.starttls(context=context)

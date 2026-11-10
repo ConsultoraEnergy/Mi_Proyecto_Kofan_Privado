@@ -28,7 +28,10 @@ export const RECEIPT_MAX_MB = 5;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const escapeHtml = (value) =>
-  String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
 
 export const useReservaStore = defineStore("reserva", () => {
   const isModalOpen = ref(false);
@@ -102,7 +105,8 @@ export const useReservaStore = defineStore("reserva", () => {
       const data = await getQuote(room.id, checkIn.value, checkOut.value);
       if (requestId === quoteRequestId) quote.value = data;
     } catch (error) {
-      if (requestId === quoteRequestId) quoteError.value = errorMessage(error, "No pudimos calcular el precio de esas fechas.");
+      if (requestId === quoteRequestId)
+        quoteError.value = errorMessage(error, "No pudimos calcular el precio de esas fechas.");
     } finally {
       if (requestId === quoteRequestId) quoteLoading.value = false;
     }
@@ -270,8 +274,23 @@ export const useReservaStore = defineStore("reserva", () => {
   };
 
   return {
-    isModalOpen, isSubmitting, form, errors, selectedDateRange, disabledDates, minDate,
-    habitacionSeleccionada, quote, quoteLoading, quoteError, resumen,
-    openModal, closeModal, handleSubmit, resetForm, handleFileUpload, removerComprobante,
+    isModalOpen,
+    isSubmitting,
+    form,
+    errors,
+    selectedDateRange,
+    disabledDates,
+    minDate,
+    habitacionSeleccionada,
+    quote,
+    quoteLoading,
+    quoteError,
+    resumen,
+    openModal,
+    closeModal,
+    handleSubmit,
+    resetForm,
+    handleFileUpload,
+    removerComprobante,
   };
 });

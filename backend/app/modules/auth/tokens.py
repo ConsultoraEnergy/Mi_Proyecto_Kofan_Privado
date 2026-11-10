@@ -5,6 +5,7 @@ Tokens opacos persistidos (solo se guarda su hash SHA-256):
   un token ya rotado (posible robo) se revoca toda la familia (todas las sesiones derivadas).
 - email_tokens: enlaces de un solo uso (verificar correo, restablecer/definir contraseña).
 """
+
 import uuid
 from datetime import timedelta
 from enum import StrEnum
@@ -26,26 +27,29 @@ _INVALID_SESSION = "Sesión inválida o expirada. Inicia sesión de nuevo."
 
 class EmailTokenPurpose(StrEnum):
     VERIFY_EMAIL = "verify_email"
-    RESET_PASSWORD = "reset_password"
-    SET_PASSWORD = "set_password"
+    RESET_PASSWORD = "reset_password"  # noqa: S105 (propósito del token, no un secreto)
+    SET_PASSWORD = "set_password"  # noqa: S105
 
 
 # ---------------------------------------------------------------------------
 # Refresh tokens
 # ---------------------------------------------------------------------------
 
+
 async def issue_refresh_token(user_id: ObjectId, family_id: str | None = None) -> str:
     raw = generate_opaque_token()
     now = utcnow()
-    await get_db().refresh_tokens.insert_one({
-        "token_hash": hash_token(raw),
-        "user_id": user_id,
-        "family_id": family_id or uuid.uuid4().hex,
-        "created_at": now,
-        "expires_at": now + timedelta(days=get_settings().refresh_token_expire_days),
-        "revoked_at": None,
-        "replaced_by": None,
-    })
+    await get_db().refresh_tokens.insert_one(
+        {
+            "token_hash": hash_token(raw),
+            "user_id": user_id,
+            "family_id": family_id or uuid.uuid4().hex,
+            "created_at": now,
+            "expires_at": now + timedelta(days=get_settings().refresh_token_expire_days),
+            "revoked_at": None,
+            "replaced_by": None,
+        }
+    )
     return raw
 
 
@@ -74,15 +78,17 @@ async def rotate_refresh_token(raw: str | None) -> tuple[ObjectId, str]:
                 await revoke_family(existing["family_id"])
         raise Unauthorized(_INVALID_SESSION)
 
-    await tokens.insert_one({
-        "token_hash": new_hash,
-        "user_id": current["user_id"],
-        "family_id": current["family_id"],
-        "created_at": now,
-        "expires_at": now + timedelta(days=get_settings().refresh_token_expire_days),
-        "revoked_at": None,
-        "replaced_by": None,
-    })
+    await tokens.insert_one(
+        {
+            "token_hash": new_hash,
+            "user_id": current["user_id"],
+            "family_id": current["family_id"],
+            "created_at": now,
+            "expires_at": now + timedelta(days=get_settings().refresh_token_expire_days),
+            "revoked_at": None,
+            "replaced_by": None,
+        }
+    )
     return current["user_id"], new_raw
 
 
@@ -111,6 +117,7 @@ async def revoke_all_for_user(user_id: ObjectId) -> None:
 # Tokens de correo (un solo uso)
 # ---------------------------------------------------------------------------
 
+
 def _ttl(purpose: EmailTokenPurpose) -> timedelta:
     settings = get_settings()
     return {
@@ -126,14 +133,16 @@ async def create_email_token(user_id: ObjectId, purpose: EmailTokenPurpose) -> s
     await tokens.delete_many({"user_id": user_id, "purpose": purpose.value, "used_at": None})
     raw = generate_opaque_token()
     now = utcnow()
-    await tokens.insert_one({
-        "token_hash": hash_token(raw),
-        "user_id": user_id,
-        "purpose": purpose.value,
-        "created_at": now,
-        "expires_at": now + _ttl(purpose),
-        "used_at": None,
-    })
+    await tokens.insert_one(
+        {
+            "token_hash": hash_token(raw),
+            "user_id": user_id,
+            "purpose": purpose.value,
+            "created_at": now,
+            "expires_at": now + _ttl(purpose),
+            "used_at": None,
+        }
+    )
     return raw
 
 

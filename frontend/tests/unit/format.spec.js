@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { assetUrl } from "@/config/env";
-import { formatDate, formatDateTime, formatMoney, fromIsoDate, nightsBetween, toIsoDate } from "@/utils/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  fromIsoDate,
+  nightsBetween,
+  toIsoDate,
+} from "@/utils/format";
 import { canTransition, requiresReason, statusLabel } from "@/constants/booking";
 
 describe("utils/format", () => {

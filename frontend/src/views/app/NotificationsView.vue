@@ -60,7 +60,8 @@ const resolverIconoAviso = (icono) => {
   if (valor.includes("check")) return "fa-solid fa-circle-check";
   if (valor.includes("exclamation") || valor.includes("info")) return "fa-solid fa-circle-info";
   if (valor.includes("house") || valor.includes("door")) return "fa-solid fa-house-chimney";
-  if (valor.includes("x-circle") || valor.includes("ban") || valor.includes("cancel")) return "fa-solid fa-ban";
+  if (valor.includes("x-circle") || valor.includes("ban") || valor.includes("cancel"))
+    return "fa-solid fa-ban";
   return "fa-solid fa-bell";
 };
 
@@ -75,9 +76,9 @@ const theme = (aviso) => aviso.theme || "primary";
         <p class="text-muted mb-0 small">Mantente al tanto de tus reservas y promociones exclusivas.</p>
       </div>
       <button
-        @click="marcarTodosLeidos"
         class="btn btn-outline-dark rounded-pill px-4 shadow-sm fw-medium"
         :disabled="marking || sinLeer === 0"
+        @click="marcarTodosLeidos"
       >
         <span v-if="marking" class="spinner-border spinner-border-sm me-2"></span>
         <font-awesome-icon v-else icon="fa-solid fa-circle-check" class="me-2" /> Marcar como leídos
@@ -117,7 +118,8 @@ const theme = (aviso) => aviso.theme || "primary";
                 {{ aviso.title }}
               </h6>
               <small class="text-muted">
-                <font-awesome-icon icon="fa-solid fa-clock" class="me-1" /> {{ formatDateTime(aviso.created_at) }}
+                <font-awesome-icon icon="fa-solid fa-clock" class="me-1" />
+                {{ formatDateTime(aviso.created_at) }}
               </small>
             </div>
             <p class="mb-0 text-secondary small">{{ aviso.message }}</p>
@@ -130,7 +132,9 @@ const theme = (aviso) => aviso.theme || "primary";
 
 <style scoped>
 .aviso-card {
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
   cursor: default;
 }
 

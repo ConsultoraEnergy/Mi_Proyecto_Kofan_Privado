@@ -78,15 +78,13 @@ onMounted(() => {
     <div v-if="loadError" class="alert alert-danger small">{{ loadError }}</div>
 
     <section class="eco-card priorities-section p-4 mb-4">
-      <div
-        class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3"
-      >
+      <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
         <div>
           <p class="brand-handmade mb-1">Bienvenida a {{ configStore.hotelName }}</p>
           <h2 class="section-title h3 mb-2">Prioridades del Día</h2>
           <p class="text-muted mb-0">
-            Revisa primero los pagos por verificar, las llegadas, las salidas y el
-            nivel de ocupación para mantener una experiencia tranquila.
+            Revisa primero los pagos por verificar, las llegadas, las salidas y el nivel de ocupación para
+            mantener una experiencia tranquila.
           </p>
         </div>
 
@@ -104,8 +102,7 @@ onMounted(() => {
             :to="{ name: 'admin-rooms' }"
             class="btn btn-soft-sky"
           >
-            <font-awesome-icon icon="fa-solid fa-bed" class="me-2" /> Estado de
-            habitaciones
+            <font-awesome-icon icon="fa-solid fa-bed" class="me-2" /> Estado de habitaciones
           </router-link>
         </div>
       </div>
@@ -122,20 +119,18 @@ onMounted(() => {
         <div class="flex-grow-1">
           <p class="small text-uppercase mb-0 fw-bold">Pagos por verificar</p>
           <small class="text-muted">
-            {{ stats.pending_verification > 0
-              ? "Hay comprobantes de anticipo esperando revisión."
-              : "No hay comprobantes pendientes de revisión." }}
+            {{
+              stats.pending_verification > 0
+                ? "Hay comprobantes de anticipo esperando revisión."
+                : "No hay comprobantes pendientes de revisión."
+            }}
           </small>
         </div>
         <h3 class="mb-0 fw-bold text-brand">{{ stats.pending_verification }}</h3>
       </component>
 
       <div class="row g-3 mt-1">
-        <div
-          v-for="item in prioridades"
-          :key="item.label"
-          class="col-sm-4"
-        >
+        <div v-for="item in prioridades" :key="item.label" class="col-sm-4">
           <div class="priority-pill" :class="`tone-${item.tone}`">
             <div class="priority-icon">
               <font-awesome-icon :icon="item.icon" />
@@ -156,9 +151,7 @@ onMounted(() => {
         <div class="eco-card h-100 p-3 card-stat">
           <div class="d-flex justify-content-between">
             <div>
-              <p class="text-muted small fw-bold mb-1 text-uppercase">
-                Ingresos del Mes
-              </p>
+              <p class="text-muted small fw-bold mb-1 text-uppercase">Ingresos del Mes</p>
               <h3 class="fw-bold mb-0 text-brand">
                 {{ formatMoney(stats.month_revenue, configStore.data.currency) }}
               </h3>
@@ -175,9 +168,7 @@ onMounted(() => {
         <div class="eco-card h-100 p-3 card-stat">
           <div class="d-flex justify-content-between">
             <div>
-              <p class="text-muted small fw-bold mb-1 text-uppercase">
-                Huéspedes Hoy
-              </p>
+              <p class="text-muted small fw-bold mb-1 text-uppercase">Huéspedes Hoy</p>
               <h3 class="fw-bold mb-0 text-brand">{{ stats.in_house_guests }}</h3>
             </div>
             <div class="icon-circle icon-sand">
@@ -192,12 +183,8 @@ onMounted(() => {
         <div class="eco-card h-100 p-3 card-stat">
           <div class="d-flex justify-content-between">
             <div>
-              <p class="text-muted small fw-bold mb-1 text-uppercase">
-                Ocupación
-              </p>
-              <h3 class="fw-bold mb-0 text-brand">
-                {{ stats.occupancy_percent }}%
-              </h3>
+              <p class="text-muted small fw-bold mb-1 text-uppercase">Ocupación</p>
+              <h3 class="fw-bold mb-0 text-brand">{{ stats.occupancy_percent }}%</h3>
             </div>
             <div class="icon-circle icon-soft">
               <font-awesome-icon icon="fa-solid fa-bed" />
@@ -226,11 +213,7 @@ onMounted(() => {
             Aún no hay reservas suficientes para mostrar tendencias.
           </p>
 
-          <div
-            v-for="(hab, index) in habitacionesPopulares"
-            :key="hab.room_id"
-            class="mb-4"
-          >
+          <div v-for="(hab, index) in habitacionesPopulares" :key="hab.room_id" class="mb-4">
             <div class="d-flex justify-content-between mb-1">
               <span class="fw-bold text-brand">{{ hab.name }}</span>
               <span class="text-muted small">{{ hab.bookings }} reservas</span>
@@ -252,20 +235,33 @@ onMounted(() => {
 
           <p v-if="!ultimosMovimientos.length" class="text-muted small">Sin movimientos recientes.</p>
 
-          <div v-for="item in ultimosMovimientos.slice(0, 3)" :key="`${item.booking_id}-${item.at}`"
-               class="d-flex mb-3 align-items-center p-3 bg-white border shadow-sm rounded-3 notification-item">
-            <div class="activity-dot flex-shrink-0 me-3" :class="item.status === 'cancelled' ? 'bg-danger' : 'bg-success'"></div>
+          <div
+            v-for="item in ultimosMovimientos.slice(0, 3)"
+            :key="`${item.booking_id}-${item.at}`"
+            class="d-flex mb-3 align-items-center p-3 bg-white border shadow-sm rounded-3 notification-item"
+          >
+            <div
+              class="activity-dot flex-shrink-0 me-3"
+              :class="item.status === 'cancelled' ? 'bg-danger' : 'bg-success'"
+            ></div>
             <div class="flex-grow-1 min-w-0">
               <h6 class="mb-0 fw-bold small text-truncate">{{ item.guest_name }}</h6>
               <p class="mb-0 text-muted extra-small text-truncate">
-                <span class="badge me-1" :class="statusMeta(item.status).badge">{{ statusMeta(item.status).label }}</span>
+                <span class="badge me-1" :class="statusMeta(item.status).badge">{{
+                  statusMeta(item.status).label
+                }}</span>
                 {{ item.room_name }} · {{ formatDateTime(item.at) }}
               </p>
             </div>
-            <div class="fw-bold small text-nowrap ms-2">{{ formatMoney(item.total_amount, configStore.data.currency) }}</div>
+            <div class="fw-bold small text-nowrap ms-2">
+              {{ formatMoney(item.total_amount, configStore.data.currency) }}
+            </div>
           </div>
 
-          <button @click="modalAvisosVisible = true" class="btn btn-light btn-sm w-100 mt-2 fw-bold text-muted rounded-3">
+          <button
+            class="btn btn-light btn-sm w-100 mt-2 fw-bold text-muted rounded-3"
+            @click="modalAvisosVisible = true"
+          >
             Ver mis avisos
           </button>
         </div>
@@ -275,7 +271,6 @@ onMounted(() => {
     </div>
 
     <ActivityNotificationsModal :show="modalAvisosVisible" @close="modalAvisosVisible = false" />
-
   </div>
 </template>
 

@@ -1,4 +1,5 @@
 """Notificaciones del panel (in-app) y plantillas de correo."""
+
 from datetime import datetime
 
 from bson import ObjectId
@@ -20,27 +21,33 @@ class NotificationOut(BaseModel):
     created_at: datetime
 
 
-async def notify_user(user_id: ObjectId | str, title: str, message: str, theme: str = "primary",
-                      icon: str = "bi-info-circle-fill") -> None:
-    await get_db().notifications.insert_one({
-        "user_id": ObjectId(str(user_id)),
-        "title": title,
-        "message": message,
-        "theme": theme,
-        "icon": icon,
-        "read": False,
-        "created_at": utcnow(),
-    })
+async def notify_user(
+    user_id: ObjectId | str, title: str, message: str, theme: str = "primary", icon: str = "bi-info-circle-fill"
+) -> None:
+    await get_db().notifications.insert_one(
+        {
+            "user_id": ObjectId(str(user_id)),
+            "title": title,
+            "message": message,
+            "theme": theme,
+            "icon": icon,
+            "read": False,
+            "created_at": utcnow(),
+        }
+    )
 
 
 async def list_for_user(user_id: ObjectId, limit: int = 30) -> list[NotificationOut]:
-    docs = await (
-        get_db().notifications.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
-    )
+    docs = await get_db().notifications.find({"user_id": user_id}).sort("created_at", -1).limit(limit).to_list(limit)
     return [
         NotificationOut(
-            id=str(d["_id"]), title=d["title"], message=d["message"], theme=d.get("theme", "primary"),
-            icon=d.get("icon", "bi-bell"), read=d.get("read", False), created_at=d["created_at"],
+            id=str(d["_id"]),
+            title=d["title"],
+            message=d["message"],
+            theme=d.get("theme", "primary"),
+            icon=d.get("icon", "bi-bell"),
+            read=d.get("read", False),
+            created_at=d["created_at"],
         )
         for d in docs
     ]
@@ -54,6 +61,7 @@ async def mark_all_read(user_id: ObjectId) -> int:
 # ---------------------------------------------------------------------------
 # Plantillas de correo
 # ---------------------------------------------------------------------------
+
 
 def _link(path: str, token: str) -> str:
     return f"{get_settings().frontend_url}{path}?token={token}"

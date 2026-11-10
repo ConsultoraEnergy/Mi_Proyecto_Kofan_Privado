@@ -2,6 +2,7 @@
 Auditoría automática de autorización: recorre TODOS los endpoints publicados en el esquema OpenAPI.
 Si se agrega un endpoint, debe quedar clasificado aquí (y en docs/ENDPOINTS_ACCESO.md).
 """
+
 import re
 
 import pytest
@@ -62,11 +63,7 @@ RECEPTIONIST_ALLOWED = {
 def all_endpoints() -> set[tuple[str, str]]:
     from backend.app.main import app
 
-    return {
-        (method.upper(), path)
-        for path, operations in app.openapi()["paths"].items()
-        for method in operations
-    }
+    return {(method.upper(), path) for path, operations in app.openapi()["paths"].items() for method in operations}
 
 
 def concrete(path: str) -> str:
@@ -77,7 +74,7 @@ def test_todos_los_endpoints_estan_clasificados():
     endpoints = all_endpoints()
     staff = endpoints - PUBLIC - AUTHENTICATED
     assert len(endpoints) > 40
-    assert (PUBLIC | AUTHENTICATED | RECEPTIONIST_ALLOWED) <= endpoints, "Hay endpoints listados que ya no existen"
+    assert endpoints >= (PUBLIC | AUTHENTICATED | RECEPTIONIST_ALLOWED), "Hay endpoints listados que ya no existen"
     assert staff, "Debe haber endpoints de personal"
 
 
@@ -115,14 +112,19 @@ async def test_recepcion_si_accede_a_sus_endpoints(anon, receptionist_headers):
 
 
 async def test_recepcion_no_puede_crear_personal(anon, receptionist_headers):
-    response = await anon.post("/users", json={"email": "nuevo.admin@x.com", "full_name": "Nuevo Admin", "role": "admin"},
-                               headers=receptionist_headers)
+    response = await anon.post(
+        "/users",
+        json={"email": "nuevo.admin@x.com", "full_name": "Nuevo Admin", "role": "admin"},
+        headers=receptionist_headers,
+    )
     assert response.status_code == 403
 
 
 async def test_recepcion_no_puede_editar_ni_suspender_admins(anon, admin, receptionist_headers):
     editar = await anon.patch(f"/users/{admin['_id']}", json={"full_name": "Hackeado"}, headers=receptionist_headers)
-    suspender = await anon.patch(f"/users/{admin['_id']}/status", json={"is_active": False}, headers=receptionist_headers)
+    suspender = await anon.patch(
+        f"/users/{admin['_id']}/status", json={"is_active": False}, headers=receptionist_headers
+    )
     assert editar.status_code == suspender.status_code == 403
 
 
@@ -132,8 +134,12 @@ async def test_recepcion_no_puede_ascender_un_cliente(anon, client_user, recepti
 
 
 async def test_admin_no_puede_suspenderse_ni_cambiar_su_rol(anon, admin, admin_headers):
-    assert (await anon.patch(f"/users/{admin['_id']}/status", json={"is_active": False}, headers=admin_headers)).status_code == 403
-    assert (await anon.patch(f"/users/{admin['_id']}", json={"role": "client"}, headers=admin_headers)).status_code == 403
+    assert (
+        await anon.patch(f"/users/{admin['_id']}/status", json={"is_active": False}, headers=admin_headers)
+    ).status_code == 403
+    assert (
+        await anon.patch(f"/users/{admin['_id']}", json={"role": "client"}, headers=admin_headers)
+    ).status_code == 403
 
 
 async def test_ids_invalidos_responden_404_no_500(anon, admin_headers):

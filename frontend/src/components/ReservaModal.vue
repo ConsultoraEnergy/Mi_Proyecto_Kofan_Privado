@@ -63,18 +63,22 @@ const handleConfirmarReserva = async () => {
       <div class="modal-body pb-2">
         <div class="text-center mb-4">
           <font-awesome-icon icon="fa-solid fa-leaf" class="verde-brand mb-2 fs-4" />
-          <h2 class="fw-bold verde-brand" v-if="store.habitacionSeleccionada">
+          <h2 v-if="store.habitacionSeleccionada" class="fw-bold verde-brand">
             Reservar: <strong>{{ store.habitacionSeleccionada.name }}</strong>
           </h2>
         </div>
 
-        <form @submit.prevent="handleConfirmarReserva" novalidate>
+        <form novalidate @submit.prevent="handleConfirmarReserva">
           <div class="row g-3">
-
             <div class="col-12 mb-3 d-flex flex-column align-items-center">
-              <label class="form-label-brand mb-2 text-center fw-bold text-success">1. Selecciona tus fechas</label>
+              <label class="form-label-brand mb-2 text-center fw-bold text-success"
+                >1. Selecciona tus fechas</label
+              >
 
-              <div class="calendario-wrapper p-2 bg-light rounded border d-flex justify-content-center" style="width: 100%; max-width: 550px;">
+              <div
+                class="calendario-wrapper p-2 bg-light rounded border d-flex justify-content-center"
+                style="width: 100%; max-width: 550px"
+              >
                 <VDatePicker
                   v-model.range="store.selectedDateRange"
                   is-range
@@ -87,150 +91,253 @@ const handleConfirmarReserva = async () => {
                 />
               </div>
 
-              <p v-if="store.errors.dates" class="text-danger small text-center mt-2 mb-0">Selecciona una fecha de ingreso y salida.</p>
-              <p v-if="store.quoteError" class="text-danger small text-center mt-2 mb-0">{{ store.quoteError }}</p>
+              <p v-if="store.errors.dates" class="text-danger small text-center mt-2 mb-0">
+                Selecciona una fecha de ingreso y salida.
+              </p>
+              <p v-if="store.quoteError" class="text-danger small text-center mt-2 mb-0">
+                {{ store.quoteError }}
+              </p>
             </div>
 
-            <div v-if="store.resumen && !store.quoteError" class="col-12 my-3 d-flex justify-content-center animate__animated animate__fadeIn">
-              <div class="p-3 rounded-4 shadow-sm position-relative overflow-hidden text-center" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; max-width: 450px; width: 100%;">
-
-                <div class="position-absolute top-0 start-0 w-100 py-1 small fw-bold text-white" style="background-color: #198754; opacity: 0.9;">
+            <div
+              v-if="store.resumen && !store.quoteError"
+              class="col-12 my-3 d-flex justify-content-center animate__animated animate__fadeIn"
+            >
+              <div
+                class="p-3 rounded-4 shadow-sm position-relative overflow-hidden text-center"
+                style="background-color: #f0fdf4; border: 1px solid #bbf7d0; max-width: 450px; width: 100%"
+              >
+                <div
+                  class="position-absolute top-0 start-0 w-100 py-1 small fw-bold text-white"
+                  style="background-color: #198754; opacity: 0.9"
+                >
                   ¡Asegura tu reserva con el {{ store.resumen.deposit_percent }}%!
                 </div>
 
                 <div class="mt-4">
-                  <p class="mb-0 text-muted fw-medium" style="font-size: 0.85rem;">
-                    Total de la estadía ({{ nochesTexto }}): <span class="text-decoration-line-through">{{ money(store.resumen.total_amount) }}</span>
+                  <p class="mb-0 text-muted fw-medium" style="font-size: 0.85rem">
+                    Total de la estadía ({{ nochesTexto }}):
+                    <span class="text-decoration-line-through">{{ money(store.resumen.total_amount) }}</span>
                   </p>
-                  <p class="mb-0 mt-1 text-success fw-bold" style="font-size: 0.9rem;">Transferir ahora:</p>
-                  <h3 class="fw-bold mb-1" style="color: #0f3b2a; font-size: 1.8rem;">{{ money(store.resumen.deposit_amount) }}</h3>
-                  <p v-if="store.resumen.estimated" class="text-muted mb-2" style="font-size: 0.75rem;">
-                    <span class="spinner-border spinner-border-sm me-1" v-if="store.quoteLoading"></span>
+                  <p class="mb-0 mt-1 text-success fw-bold" style="font-size: 0.9rem">Transferir ahora:</p>
+                  <h3 class="fw-bold mb-1" style="color: #0f3b2a; font-size: 1.8rem">
+                    {{ money(store.resumen.deposit_amount) }}
+                  </h3>
+                  <p v-if="store.resumen.estimated" class="text-muted mb-2" style="font-size: 0.75rem">
+                    <span v-if="store.quoteLoading" class="spinner-border spinner-border-sm me-1"></span>
                     Calculando el valor final...
                   </p>
-                  <p class="payment-instructions text-muted mb-3" style="font-size: 0.8rem;">{{ configStore.data.payment_instructions || "El hotel te enviará los datos de pago." }}</p>
+                  <p class="payment-instructions text-muted mb-3" style="font-size: 0.8rem">
+                    {{ configStore.data.payment_instructions || "El hotel te enviará los datos de pago." }}
+                  </p>
                 </div>
 
-                <div class="bg-white p-2 rounded-3 border text-start d-flex gap-2 shadow-sm align-items-center" style="border-color: #bbf7d0 !important;">
+                <div
+                  class="bg-white p-2 rounded-3 border text-start d-flex gap-2 shadow-sm align-items-center"
+                  style="border-color: #bbf7d0 !important"
+                >
                   <font-awesome-icon :icon="['fas', 'shield-halved']" class="tone-forest fs-4" />
-                  <span style="font-size: 0.75rem; color: #4a4a4a; line-height: 1.3;">
-                    <strong>Reserva segura:</strong> Por favor adjunta tu comprobante. Una vez lo envíes, bloquearemos tus fechas y verificaremos el pago para confirmarte.
+                  <span style="font-size: 0.75rem; color: #4a4a4a; line-height: 1.3">
+                    <strong>Reserva segura:</strong> Por favor adjunta tu comprobante. Una vez lo envíes,
+                    bloquearemos tus fechas y verificaremos el pago para confirmarte.
                   </span>
                 </div>
-
               </div>
             </div>
 
             <div class="col-12 mt-2">
-              <label class="form-label-brand fw-bold text-success text-center d-block">2. Tus Datos y Comprobante</label>
+              <label class="form-label-brand fw-bold text-success text-center d-block"
+                >2. Tus Datos y Comprobante</label
+              >
             </div>
 
             <div class="col-md-12">
               <label class="form-label-brand">Nombre y Apellido / Razón Social</label>
-              <input type="text" class="input-brand" v-model="store.form.nombreCompleto" placeholder="Ej: Juan Pérez" :class="{ 'is-invalid': store.errors.nombreCompleto }" />
+              <input
+                v-model="store.form.nombreCompleto"
+                type="text"
+                class="input-brand"
+                placeholder="Ej: Juan Pérez"
+                :class="{ 'is-invalid': store.errors.nombreCompleto }"
+              />
             </div>
 
             <div class="col-md-6">
               <label class="form-label-brand">Celular (WhatsApp)</label>
-              <input type="tel" class="input-brand" v-model="store.form.telefono" placeholder="310 123 4567" :class="{ 'is-invalid': store.errors.telefono }" />
+              <input
+                v-model="store.form.telefono"
+                type="tel"
+                class="input-brand"
+                placeholder="310 123 4567"
+                :class="{ 'is-invalid': store.errors.telefono }"
+              />
             </div>
 
             <div class="col-md-6">
               <label class="form-label-brand">Correo Electrónico</label>
-              <input type="email" class="input-brand" v-model="store.form.correo" placeholder="ejemplo@correo.com" :class="{ 'is-invalid': store.errors.correo }" :disabled="auth.isLogged" />
+              <input
+                v-model="store.form.correo"
+                type="email"
+                class="input-brand"
+                placeholder="ejemplo@correo.com"
+                :class="{ 'is-invalid': store.errors.correo }"
+                :disabled="auth.isLogged"
+              />
             </div>
 
             <div class="col-md-6">
               <label class="form-label-brand">Tipo de documento (opcional)</label>
-              <select class="input-brand" v-model="store.form.tipoDocumento">
-                <option v-for="doc in DOCUMENT_TYPES" :key="doc.value" :value="doc.value">{{ doc.label }}</option>
+              <select v-model="store.form.tipoDocumento" class="input-brand">
+                <option v-for="doc in DOCUMENT_TYPES" :key="doc.value" :value="doc.value">
+                  {{ doc.label }}
+                </option>
               </select>
             </div>
 
             <div class="col-md-6">
               <label class="form-label-brand">Número de documento (opcional)</label>
-              <input type="text" class="input-brand" v-model="store.form.numeroDocumento" placeholder="Ej: 1012345678" />
+              <input
+                v-model="store.form.numeroDocumento"
+                type="text"
+                class="input-brand"
+                placeholder="Ej: 1012345678"
+              />
             </div>
 
             <div class="col-md-12 mt-3">
-              <label class="form-label-brand text-success fw-bold"><font-awesome-icon :icon="['fas', 'camera']" class="me-1 tone-forest" /> Adjuntar Comprobante de Pago</label>
+              <label class="form-label-brand text-success fw-bold"
+                ><font-awesome-icon :icon="['fas', 'camera']" class="me-1 tone-forest" /> Adjuntar Comprobante
+                de Pago</label
+              >
 
-              <div v-if="!store.form.comprobantePreview"
-                   class="border border-2 rounded-3 p-4 text-center bg-light transition-all hover-shadow"
-                   style="border-style: dashed !important; border-color: #198754 !important; cursor: pointer;"
-                   @dragover.prevent
-                   @drop.prevent="store.handleFileUpload"
-                   @click="$refs.fileInput.click()">
-
-                <font-awesome-icon :icon="['fas', 'cloud-arrow-up']" class="upload-drop-icon tone-forest mb-2" />
+              <div
+                v-if="!store.form.comprobantePreview"
+                class="border border-2 rounded-3 p-4 text-center bg-light transition-all hover-shadow"
+                style="border-style: dashed !important; border-color: #198754 !important; cursor: pointer"
+                @dragover.prevent
+                @drop.prevent="store.handleFileUpload"
+                @click="$refs.fileInput.click()"
+              >
+                <font-awesome-icon
+                  :icon="['fas', 'cloud-arrow-up']"
+                  class="upload-drop-icon tone-forest mb-2"
+                />
                 <h6 class="mb-1 fw-bold text-dark">Haz clic o arrastra tu comprobante aquí</h6>
-                <p class="text-muted small mb-0">Formatos aceptados: JPG, PNG, WebP o PDF (máx. {{ RECEIPT_MAX_MB }} MB)</p>
+                <p class="text-muted small mb-0">
+                  Formatos aceptados: JPG, PNG, WebP o PDF (máx. {{ RECEIPT_MAX_MB }} MB)
+                </p>
 
-                <input type="file" ref="fileInput" class="d-none" @change="store.handleFileUpload" :accept="receiptAccept" />
+                <input
+                  ref="fileInput"
+                  type="file"
+                  class="d-none"
+                  :accept="receiptAccept"
+                  @change="store.handleFileUpload"
+                />
               </div>
 
-              <div v-else class="position-relative text-center mt-2 border border-success rounded-3 p-3 bg-white shadow-sm">
-
-                <img v-if="store.form.comprobantePreview !== 'pdf-icon'"
-                     :src="store.form.comprobantePreview"
-                     alt="Vista previa del comprobante"
-                     class="img-fluid rounded border shadow-sm"
-                     style="max-height: 180px; object-fit: contain;" />
+              <div
+                v-else
+                class="position-relative text-center mt-2 border border-success rounded-3 p-3 bg-white shadow-sm"
+              >
+                <img
+                  v-if="store.form.comprobantePreview !== 'pdf-icon'"
+                  :src="store.form.comprobantePreview"
+                  alt="Vista previa del comprobante"
+                  class="img-fluid rounded border shadow-sm"
+                  style="max-height: 180px; object-fit: contain"
+                />
 
                 <div v-else class="py-4">
                   <font-awesome-icon :icon="['fas', 'file-pdf']" class="pdf-preview-icon text-danger" />
                   <h6 class="mt-2 text-dark">{{ store.form.comprobante.name }}</h6>
                 </div>
 
-                <button type="button"
-                        class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow"
-                        style="width: 35px; height: 35px;"
-                        title="Quitar comprobante"
-                        @click.stop="store.removerComprobante">
+                <button
+                  type="button"
+                  class="btn btn-danger btn-sm position-absolute top-0 end-0 m-2 rounded-circle shadow"
+                  style="width: 35px; height: 35px"
+                  title="Quitar comprobante"
+                  @click.stop="store.removerComprobante"
+                >
                   <font-awesome-icon :icon="['fas', 'trash']" />
                 </button>
               </div>
 
-              <p v-if="store.errors.comprobante" class="text-danger small mt-1">Por favor sube el comprobante de pago.</p>
+              <p v-if="store.errors.comprobante" class="text-danger small mt-1">
+                Por favor sube el comprobante de pago.
+              </p>
             </div>
 
             <div class="col-12 mt-3">
               <div class="form-check">
-                <input id="acepta-politica" type="checkbox" class="form-check-input" v-model="store.form.aceptaPolitica" :class="{ 'is-invalid': store.errors.politica }" />
+                <input
+                  id="acepta-politica"
+                  v-model="store.form.aceptaPolitica"
+                  type="checkbox"
+                  class="form-check-input"
+                  :class="{ 'is-invalid': store.errors.politica }"
+                />
                 <label for="acepta-politica" class="form-check-label small">
-                  Acepto la política de tratamiento de datos personales (Ley 1581 de 2012).
+                  Acepto la
+                  <router-link :to="{ name: 'privacy-policy' }" target="_blank" rel="noopener"
+                    >política de tratamiento de datos personales</router-link
+                  >
+                  (Ley 1581 de 2012).
                 </label>
               </div>
-              <p v-if="store.errors.politica" class="text-danger small mt-1 mb-0">Debes aceptar la política de tratamiento de datos para reservar.</p>
+              <p v-if="store.errors.politica" class="text-danger small mt-1 mb-0">
+                Debes aceptar la política de tratamiento de datos para reservar.
+              </p>
             </div>
-
           </div>
 
           <div class="text-center mt-5">
-            <button type="submit"
-                    class="btn px-4 py-2 rounded-pill shadow-sm transition-all text-white"
-                    style="background-color: #0f3b2a; border: none; font-weight: 500; letter-spacing: 0.5px; font-size: 0.95rem;"
-                    :disabled="store.isSubmitting"
-                    onmouseover="this.style.opacity='0.85'; this.style.transform='translateY(-1px)'"
-                    onmouseout="this.style.opacity='1'; this.style.transform='translateY(0)'">
+            <button
+              type="submit"
+              class="btn px-4 py-2 rounded-pill shadow-sm transition-all text-white"
+              style="
+                background-color: #0f3b2a;
+                border: none;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+                font-size: 0.95rem;
+              "
+              :disabled="store.isSubmitting"
+              onmouseover="
+                this.style.opacity = '0.85';
+                this.style.transform = 'translateY(-1px)';
+              "
+              onmouseout="
+                this.style.opacity = '1';
+                this.style.transform = 'translateY(0)';
+              "
+            >
               <font-awesome-icon icon="fa-solid fa-check" class="me-2 opacity-75" />
-              {{ store.isSubmitting ? 'Procesando...' : 'Confirmar y Enviar' }}
+              {{ store.isSubmitting ? "Procesando..." : "Confirmar y Enviar" }}
             </button>
           </div>
 
           <div v-if="whatsappDudas" class="text-center mt-3 mb-2">
-             <a :href="whatsappDudas"
-                target="_blank"
-                rel="noopener"
-                class="text-decoration-none"
-                style="color: #1d9e4c; font-weight: 400; font-size: 0.85rem; letter-spacing: 0.3px; transition: opacity 0.2s;"
-                onmouseover="this.style.opacity='0.7'"
-                onmouseout="this.style.opacity='1'">
-               <font-awesome-icon :icon="['fab', 'whatsapp']" class="contact-link-icon align-middle me-1" />
-               ¿Tienes dudas? Escríbenos
-             </a>
+            <a
+              :href="whatsappDudas"
+              target="_blank"
+              rel="noopener"
+              class="text-decoration-none"
+              style="
+                color: #1d9e4c;
+                font-weight: 400;
+                font-size: 0.85rem;
+                letter-spacing: 0.3px;
+                transition: opacity 0.2s;
+              "
+              onmouseover="this.style.opacity = '0.7'"
+              onmouseout="this.style.opacity = '1'"
+            >
+              <font-awesome-icon :icon="['fab', 'whatsapp']" class="contact-link-icon align-middle me-1" />
+              ¿Tienes dudas? Escríbenos
+            </a>
           </div>
-
         </form>
       </div>
     </div>
@@ -268,8 +375,14 @@ const handleConfirmarReserva = async () => {
 }
 
 @keyframes slideUp {
-  from { transform: translateY(30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-body {

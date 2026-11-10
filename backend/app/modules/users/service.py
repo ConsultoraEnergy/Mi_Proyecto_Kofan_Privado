@@ -66,18 +66,21 @@ async def _send_verification(user: dict, background: BackgroundTasks) -> None:
 # Registro público y autoservicio
 # ---------------------------------------------------------------------------
 
+
 async def register(data: RegisterIn, background: BackgroundTasks) -> UserOut:
     if data.accept_privacy_policy is not True:
         raise ValidationFailed("Debes aceptar la política de tratamiento de datos personales.")
     fields = data.model_dump(mode="json", exclude={"password", "accept_privacy_policy"})
-    user = await repository.insert({
-        **fields,
-        "password_hash": hash_password(data.password),
-        "role": Role.CLIENT.value,
-        "is_active": True,
-        "email_verified": False,
-        "privacy_policy_accepted_at": utcnow(),
-    })
+    user = await repository.insert(
+        {
+            **fields,
+            "password_hash": hash_password(data.password),
+            "role": Role.CLIENT.value,
+            "is_active": True,
+            "email_verified": False,
+            "privacy_policy_accepted_at": utcnow(),
+        }
+    )
     await _send_verification(user, background)
     return to_out(user)
 
@@ -111,6 +114,7 @@ async def deactivate_me(user: dict) -> None:
 # Gestión por el personal (admin / recepción)
 # ---------------------------------------------------------------------------
 
+
 def _require_staff_management(actor: dict, *, target_role: str | None = None) -> None:
     """Solo quien tiene users:manage_staff puede crear/editar personal o asignar roles de personal."""
     if target_role in (None, Role.CLIENT.value):
@@ -132,14 +136,16 @@ async def get_user(user_id: str) -> UserOut:
 async def create_by_staff(actor: dict, data: UserCreateByStaff, background: BackgroundTasks) -> UserOut:
     _require_staff_management(actor, target_role=data.role.value)
     # 5.10: sin contraseña por defecto. El usuario recibe un enlace de un solo uso para definirla.
-    user = await repository.insert({
-        **data.model_dump(mode="json"),
-        "role": data.role.value,
-        "password_hash": None,
-        "is_active": True,
-        "email_verified": False,
-        "created_by": actor["email"],
-    })
+    user = await repository.insert(
+        {
+            **data.model_dump(mode="json"),
+            "role": data.role.value,
+            "password_hash": None,
+            "is_active": True,
+            "email_verified": False,
+            "created_by": actor["email"],
+        }
+    )
     raw = await tokens.create_email_token(user["_id"], tokens.EmailTokenPurpose.SET_PASSWORD)
     background.add_task(send_email, notifications.set_password_email(user["email"], user["full_name"], raw))
     await audit.record("user", user["_id"], "create", actor["email"], label=user["email"])
@@ -160,8 +166,9 @@ async def update_by_staff(actor: dict, user_id: str, data: UserUpdateByStaff) ->
             raise Forbidden("No puedes cambiar tu propio rol.")
 
     updated = await repository.update(target["_id"], fields)
-    await audit.record("user", target["_id"], "update", actor["email"], label=target["email"],
-                       changes=audit.diff(target, fields))
+    await audit.record(
+        "user", target["_id"], "update", actor["email"], label=target["email"], changes=audit.diff(target, fields)
+    )
     if role_changed:
         await tokens.revoke_all_for_user(target["_id"])  # los permisos cambian: nueva sesión
     return to_out(updated)
@@ -175,6 +182,7 @@ async def set_status(actor: dict, user_id: str, is_active: bool) -> UserOut:
     updated = await repository.update(target["_id"], {"is_active": is_active})
     if not is_active:
         await tokens.revoke_all_for_user(target["_id"])
-    await audit.record("user", target["_id"], "activate" if is_active else "suspend", actor["email"],
-                       label=target["email"])
+    await audit.record(
+        "user", target["_id"], "activate" if is_active else "suspend", actor["email"], label=target["email"]
+    )
     return to_out(updated)

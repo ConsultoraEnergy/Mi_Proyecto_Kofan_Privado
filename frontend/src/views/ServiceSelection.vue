@@ -2,14 +2,9 @@
   <div class="service-selection">
     <div class="overlay-brand">
       <div class="container text-center py-5">
-        <font-awesome-icon
-          icon="fa-solid fa-leaf"
-          class="text-success mb-3 fs-1"
-        />
+        <font-awesome-icon icon="fa-solid fa-leaf" class="text-success mb-3 fs-1" />
         <h1 class="display-4 fw-bold text-white mb-2">Experiencias {{ configStore.hotelName }}</h1>
-        <p class="text-light lead mb-5">
-          Elige el tipo de experiencia que deseas vivir
-        </p>
+        <p class="text-light lead mb-5">Elige el tipo de experiencia que deseas vivir</p>
 
         <div class="row g-4 justify-content-center">
           <div class="col-md-5">
@@ -18,12 +13,10 @@
               <div class="card-content">
                 <h2 class="fw-bold">Hospedaje</h2>
                 <p>
-                  Cabañas privadas y habitaciones diseñadas para el descanso
-                  profundo y la conexión con la naturaleza.
+                  Cabañas privadas y habitaciones diseñadas para el descanso profundo y la conexión con la
+                  naturaleza.
                 </p>
-                <button class="btn btn-success rounded-pill px-4">
-                  Explorar Cabañas
-                </button>
+                <button class="btn btn-success rounded-pill px-4">Explorar Cabañas</button>
               </div>
             </div>
           </div>
@@ -33,10 +26,7 @@
               <div class="card-image eventos-bg"></div>
               <div class="card-content">
                 <h2 class="fw-bold">Eventos y Bodas</h2>
-                <p>
-                  Celebra tus momentos especiales rodeado de la magia ancestral
-                  y paisajes inolvidables.
-                </p>
+                <p>Celebra tus momentos especiales rodeado de la magia ancestral y paisajes inolvidables.</p>
                 <span class="badge bg-warning text-dark">Próximamente</span>
               </div>
             </div>

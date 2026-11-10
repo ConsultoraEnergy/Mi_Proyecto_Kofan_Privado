@@ -10,6 +10,7 @@ como máximo N+1 bytes; los nombres son uuid4().hex + extensión de una lista bl
 
 Fase 3: reemplazar la implementación local por object storage (R2/S3) manteniendo estas funciones.
 """
+
 import logging
 import re
 import uuid
@@ -52,6 +53,7 @@ class StoredFile:
 # Validación (síncrona; se ejecuta en un hilo aparte)
 # ---------------------------------------------------------------------------
 
+
 def _read_limited(file: UploadFile, max_mb: int) -> bytes:
     max_bytes = max_mb * 1024 * 1024
     file.file.seek(0)
@@ -74,9 +76,9 @@ def _process_image(data: bytes) -> tuple[bytes, str]:
                 raise ValidationFailed(_INVALID_IMAGE)
             probe.verify()
 
-        with Image.open(BytesIO(data)) as img:
-            img.load()
-            img = ImageOps.exif_transpose(img)  # aplica la rotación antes de descartar EXIF
+        with Image.open(BytesIO(data)) as source:
+            source.load()
+            img: Image.Image = ImageOps.exif_transpose(source)  # aplica la rotación antes de descartar EXIF
             icc_profile = img.info.get("icc_profile")
             img.info = {}
             save_kwargs = {"icc_profile": icc_profile} if icc_profile else {}
@@ -93,7 +95,7 @@ def _process_image(data: bytes) -> tuple[bytes, str]:
     except ValidationFailed:
         raise
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, SyntaxError, ValueError):
-        raise ValidationFailed(_INVALID_IMAGE)
+        raise ValidationFailed(_INVALID_IMAGE) from None
     return out.getvalue(), _IMAGE_FORMATS[fmt][0]
 
 
@@ -105,7 +107,7 @@ def _process_receipt(data: bytes) -> tuple[bytes, str]:
     try:
         return _process_image(data)
     except ValidationFailed:
-        raise ValidationFailed("Comprobante no válido. Solo se permiten imágenes JPEG, PNG, WebP o PDF.")
+        raise ValidationFailed("Comprobante no válido. Solo se permiten imágenes JPEG, PNG, WebP o PDF.") from None
 
 
 def _write(directory: Path, content: bytes, ext: str) -> str:
@@ -151,12 +153,13 @@ def _save_receipt_sync(file: UploadFile) -> StoredFile:
 def _public_path(url: str | None) -> Path | None:
     if not url or not url.startswith(PUBLIC_URL_PREFIX):
         return None
-    return _safe_path(get_settings().upload_dir, url[len(PUBLIC_URL_PREFIX):])
+    return _safe_path(get_settings().upload_dir, url[len(PUBLIC_URL_PREFIX) :])
 
 
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
+
 
 async def save_public_image(file: UploadFile) -> str:
     """Guarda una imagen pública y devuelve su URL relativa (/static/uploads/...)."""

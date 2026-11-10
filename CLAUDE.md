@@ -425,11 +425,11 @@ Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 - [x] **M** Pruebas de autorización: cada endpoint protegido devuelve 401/403 sin credenciales/rol adecuado. *(hecho en la Fase 1)*
 - [x] **M** Pruebas de dominio: precios, disponibilidad, solapamiento (incluida concurrencia), transiciones de estado, expiración. *(hecho en la Fase 1)*
 - [ ] **M** Pruebas de frontend para stores (`auth`, `reserva`) y E2E del flujo de reserva completo (invitado y autenticado) y del flujo admin (aprobar → check-in → check-out).
-- [ ] **S** Linters: Ruff + mypy (backend), ESLint + Prettier (frontend); `pre-commit`.
-- [ ] **M** `Dockerfile` (api, web) + `docker-compose.yml` (api, web, mongo, redis) para desarrollo local con un comando.
-- [ ] **M** GitHub Actions: lint, tests con cobertura mínima (≥70 % en `modules/bookings` y `auth`), build del frontend.
-- [ ] **S** Logging estructurado + *request-id*; reemplazar todos los `print`; integrar Sentry.
-- [ ] **S** Endpoints `/health` y `/ready`.
+- [x] **S** Linters: Ruff + mypy (backend), ESLint + Prettier (frontend); `pre-commit`. *(2026-11-10: Ruff con reglas de seguridad `S`, `ruff format`, mypy sin errores; ESLint `flat/recommended` de Vue + Prettier; `.pre-commit-config.yaml`)*
+- [x] **M** `Dockerfile` (api, web) + `docker-compose.yml` (api, web, mongo) para desarrollo local con un comando. *(2026-11-10: Redis se agregará con el worker de la Fase 3, hoy nada lo usa. No se pudo probar en local porque Docker no está instalado; el CI construye y levanta el stack)*
+- [x] **M** GitHub Actions: lint, tests con cobertura mínima (≥70 % en `modules/bookings` y `auth`), build del frontend. *(2026-11-10: `.github/workflows/ci.yml`; también exige 85 % total y construye las imágenes Docker)*
+- [x] **S** Logging estructurado + *request-id*; reemplazar todos los `print`; integrar Sentry. *(2026-11-10: `core/logging.py`, `core/sentry.py`; Sentry opcional vía `SENTRY_DSN`)*
+- [x] **S** Endpoints `/health` y `/ready`. *(2026-11-10: `api/health.py`, fuera de `/api/v1`)*
 - [ ] **M** Refactorizar `BookingsManager.vue`, `RoomsManager.vue`, `Home.vue`, `AboutUs.vue` en componentes + composables; usar la capa `services/` para todas las llamadas HTTP.
 
 ### Fase 3 — Producción y escalabilidad
@@ -448,7 +448,8 @@ Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 - [ ] **M** Notificaciones por correo/WhatsApp (confirmación, recordatorio de check-in, expiración).
 - [ ] **M** Contenido del sitio (textos, misión/visión, galería) 100 % editable desde el panel.
 - [ ] **M** SEO: meta por ruta, sitemap, datos estructurados `Hotel`; evaluar SSR/SSG para páginas públicas.
-- [ ] **M** Cumplimiento: política de datos y consentimiento (Ley 1581), renombrar facturas a folios o integrar facturación electrónica, exportación de registro de huéspedes.
+- [x] **M** Cumplimiento: política de datos y consentimiento (Ley 1581) — página `/hospedaje/politica-de-datos` enlazada desde registro y reserva; facturas renombradas a folios ("documento interno, no es factura electrónica"). *(2026-11-10)*
+- [ ] ~~Exportación de registro de huéspedes~~ **Descartada por ahora (decisión 2026-11-10):** los datos actuales son de prueba.
 - [ ] **S** i18n (español/inglés) para turistas extranjeros.
 
 ---

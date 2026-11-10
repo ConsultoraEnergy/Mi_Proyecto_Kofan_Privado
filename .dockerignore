@@ -1,0 +1,22 @@
+# Contexto de la imagen de la API (raíz del repo): solo se necesitan pyproject.toml, uv.lock y backend/.
+.git
+.github
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.coverage
+htmlcov
+test-results
+playwright-report
+docs
+frontend
+
+# Secretos y datos locales: nunca dentro de la imagen
+**/.env
+**/.env.*
+!**/.env.example
+backend/static
+backend/private_uploads
+backend/tests

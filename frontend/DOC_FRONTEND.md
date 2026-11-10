@@ -1,6 +1,7 @@
 # 🖥️ Documentación Frontend - Ecohotel Kofán
 
 ## 📦 Librerías de Node.js
+
 - @fortawesome/fontawesome-svg-core (^7.2.0)
 - @fortawesome/free-brands-svg-icons (^7.2.0)
 - @fortawesome/free-solid-svg-icons (^7.2.0)
@@ -16,6 +17,7 @@
 - vue-router (^4.2.2)
 
 ## 🚩 Iconos FontAwesome Detectados
+
 - `fa-arrow-up`
 - `fa-bed`
 - `fa-calendar-check`
@@ -51,6 +53,7 @@
 - `fa-xmark`
 
 ## 📂 Módulos Administrativos
+
 - `AdminHeader.vue`
 - `AdminLayount.vue`
 - `BookingsManager.vue`

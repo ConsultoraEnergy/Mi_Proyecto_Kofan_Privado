@@ -16,20 +16,26 @@ import {
 } from "@/constants/booking";
 import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
 
-const ModalEdicionReserva = defineAsyncComponent(
-  () => import("@/components/ModalEdicionReserva.vue"),
-);
-const ModalFactura = defineAsyncComponent(
-  () => import("@/components/ModalFactura.vue"),
-);
+const ModalEdicionReserva = defineAsyncComponent(() => import("@/components/ModalEdicionReserva.vue"));
+const ModalFolio = defineAsyncComponent(() => import("@/components/ModalFolio.vue"));
 
 const auth = useAuthStore();
 const configStore = useConfigStore();
 const route = useRoute();
 
 const TABS = [
-  { key: "pending_verification", label: "Por verificar", icon: "fa-solid fa-receipt", statuses: [S.PENDING_VERIFICATION] },
-  { key: "pending_payment", label: "Pendientes de pago", icon: "fa-solid fa-clock", statuses: [S.PENDING_PAYMENT] },
+  {
+    key: "pending_verification",
+    label: "Por verificar",
+    icon: "fa-solid fa-receipt",
+    statuses: [S.PENDING_VERIFICATION],
+  },
+  {
+    key: "pending_payment",
+    label: "Pendientes de pago",
+    icon: "fa-solid fa-clock",
+    statuses: [S.PENDING_PAYMENT],
+  },
   { key: "confirmed", label: "Confirmadas", icon: "fa-solid fa-calendar-days", statuses: [S.CONFIRMED] },
   { key: "checked_in", label: "En el hotel", icon: "fa-solid fa-bed", statuses: [S.CHECKED_IN] },
   { key: "history", label: "Historial", icon: "fa-solid fa-broom", statuses: [S.CHECKED_OUT, S.CANCELLED] },
@@ -66,7 +72,8 @@ const COLOR_APPLE = getBrandColor("--k-apple", "#8BCF5B");
 const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
 
 const money = (value) => formatMoney(value, configStore.data.currency);
-const statusMeta = (status) => BOOKING_STATUS_META[status] || { label: status, icon: "fa-solid fa-circle-info" };
+const statusMeta = (status) =>
+  BOOKING_STATUS_META[status] || { label: status, icon: "fa-solid fa-circle-info" };
 
 const puedeCambiarEstado = computed(() => auth.can(PERMISSIONS.BOOKINGS_CHANGE_STATUS));
 const puedeEditar = computed(() => auth.can(PERMISSIONS.BOOKINGS_UPDATE));
@@ -221,12 +228,12 @@ const refrescarTabla = async () => {
   await Promise.all([cargarReservas(), cargarHuespedesEnCasa()]);
 };
 
-const mostrarModalFactura = ref(false);
-const reservaParaFactura = ref(null);
+const mostrarModalFolio = ref(false);
+const reservaParaFolio = ref(null);
 
-const abrirModalFactura = (reserva) => {
-  reservaParaFactura.value = reserva;
-  mostrarModalFactura.value = true;
+const abrirModalFolio = (reserva) => {
+  reservaParaFolio.value = reserva;
+  mostrarModalFolio.value = true;
 };
 
 onMounted(() => {
@@ -245,8 +252,7 @@ onMounted(() => {
         Gestión de Reservas
       </h2>
       <p class="text-muted mb-0">
-        Verifica los comprobantes de pago, prioriza llegadas y salidas y
-        acompaña las estancias activas.
+        Verifica los comprobantes de pago, prioriza llegadas y salidas y acompaña las estancias activas.
       </p>
     </div>
 
@@ -258,9 +264,7 @@ onMounted(() => {
         >
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
-                Pagos por verificar
-              </h6>
+              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">Pagos por verificar</h6>
               <h3 class="fw-bold mb-1 text-brand">
                 {{ resumen.pending_verification }}
               </h3>
@@ -280,9 +284,7 @@ onMounted(() => {
         >
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
-                Pendientes de pago
-              </h6>
+              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">Pendientes de pago</h6>
               <h3 class="fw-bold mb-1 text-brand">
                 {{ resumen.pending_payment }}
               </h3>
@@ -299,9 +301,7 @@ onMounted(() => {
         <div class="eco-card border-0 shadow-sm p-3 rounded-4 stats-card h-100">
           <div class="d-flex align-items-center justify-content-between">
             <div>
-              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">
-                Huéspedes Hoy
-              </h6>
+              <h6 class="text-muted fw-bold mb-2 text-uppercase small-label">Huéspedes Hoy</h6>
               <h3 class="fw-bold mb-1 text-brand">
                 {{ totalHuespedesEnCasa ?? "—" }}
               </h3>
@@ -332,18 +332,17 @@ onMounted(() => {
             <span
               v-if="tab.key === 'pending_verification' && resumen.pending_verification"
               class="badge rounded-pill bg-info text-dark ms-1"
-            >{{ resumen.pending_verification }}</span>
+              >{{ resumen.pending_verification }}</span
+            >
             <span
               v-if="tab.key === 'pending_payment' && resumen.pending_payment"
               class="badge rounded-pill bg-warning text-dark ms-1"
-            >{{ resumen.pending_payment }}</span>
+              >{{ resumen.pending_payment }}</span
+            >
           </button>
         </div>
 
-        <div
-          class="input-group shadow-sm rounded-pill overflow-hidden search-soft"
-          style="max-width: 360px"
-        >
+        <div class="input-group shadow-sm rounded-pill overflow-hidden search-soft" style="max-width: 360px">
           <span class="input-group-text border-0 ps-3"
             ><font-awesome-icon icon="fa-solid fa-magnifying-glass" class="text-muted" />
           </span>
@@ -362,31 +361,19 @@ onMounted(() => {
           class="d-flex flex-column justify-content-center align-items-center h-100 position-absolute w-100 bg-white z-1"
           style="min-height: 300px"
         >
-          <div
-            class="spinner-border"
-            style="width: 3rem; height: 3rem; color: var(--k-apple)"
-            role="status"
-          >
+          <div class="spinner-border" style="width: 3rem; height: 3rem; color: var(--k-apple)" role="status">
             <span class="visually-hidden">Cargando...</span>
           </div>
-          <p class="brand-handmade mt-3 mb-0">
-            Actualizando las reservas del día...
-          </p>
+          <p class="brand-handmade mt-3 mb-0">Actualizando las reservas del día...</p>
         </div>
 
         <div
           v-else-if="reservas.length === 0"
           class="d-flex flex-column justify-content-center align-items-center h-100 py-5 empty-state-copy"
         >
-          <font-awesome-icon
-            icon="fa-solid fa-leaf"
-            class="display-6 mb-3"
-            style="color: var(--k-apple)"
-          />
+          <font-awesome-icon icon="fa-solid fa-leaf" class="display-6 mb-3" style="color: var(--k-apple)" />
           <h5 class="mb-1">No hay reservas en esta vista por ahora</h5>
-          <p class="text-muted small mb-0">
-            Cuando aparezcan nuevos movimientos, los verás aquí.
-          </p>
+          <p class="text-muted small mb-0">Cuando aparezcan nuevos movimientos, los verás aquí.</p>
         </div>
 
         <div v-else class="table-responsive">
@@ -398,9 +385,7 @@ onMounted(() => {
                 <th class="py-3 text-muted small fw-bold">FECHAS (IN - OUT)</th>
                 <th class="py-3 text-muted small fw-bold">TOTAL</th>
                 <th class="py-3 text-muted small fw-bold">ESTADO</th>
-                <th class="text-center py-3 text-muted small fw-bold">
-                  ACCIONES
-                </th>
+                <th class="text-center py-3 text-muted small fw-bold">ACCIONES</th>
               </tr>
             </thead>
             <tbody>
@@ -408,7 +393,11 @@ onMounted(() => {
                 <td class="ps-4">
                   <div class="fw-bold text-dark">
                     {{ res.code }}
-                    <span v-if="res.source === 'manual'" class="badge bg-light text-muted border ms-1 fw-normal">Recepción</span>
+                    <span
+                      v-if="res.source === 'manual'"
+                      class="badge bg-light text-muted border ms-1 fw-normal"
+                      >Recepción</span
+                    >
                   </div>
                   <div class="text-dark fw-bold" style="font-size: 0.9rem">
                     {{ res.guest?.full_name }}
@@ -425,12 +414,8 @@ onMounted(() => {
                   <div v-if="res.room?.number" class="small text-muted">N.º {{ res.room.number }}</div>
                 </td>
                 <td>
-                  <div class="small text-muted">
-                    <strong>Entra:</strong> {{ formatDate(res.check_in) }}
-                  </div>
-                  <div class="small text-muted">
-                    <strong>Sale:</strong> {{ formatDate(res.check_out) }}
-                  </div>
+                  <div class="small text-muted"><strong>Entra:</strong> {{ formatDate(res.check_in) }}</div>
+                  <div class="small text-muted"><strong>Sale:</strong> {{ formatDate(res.check_out) }}</div>
                   <div class="small text-muted">{{ res.nights }} noche(s)</div>
                 </td>
                 <td>
@@ -471,72 +456,72 @@ onMounted(() => {
                     <button
                       v-if="res.has_receipt && res.receipt_url && puedeVerComprobantes"
                       type="button"
-                      @click="verComprobante(res)"
                       class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Ver comprobante de pago"
+                      @click="verComprobante(res)"
                     >
                       <font-awesome-icon icon="fa-solid fa-images" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puede(res, 'confirmed')"
-                      @click="actualizarEstado(res, 'confirmed')"
                       class="btn btn-sm btn-outline-success rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Aprobar pago"
+                      @click="actualizarEstado(res, 'confirmed')"
                     >
                       <font-awesome-icon icon="fa-solid fa-check" class="fs-6" />
                     </button>
 
                     <button
                       v-if="res.status === 'pending_verification' && puede(res, 'pending_payment')"
-                      @click="actualizarEstado(res, 'pending_payment')"
                       class="btn btn-sm btn-outline-warning rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Rechazar comprobante"
+                      @click="actualizarEstado(res, 'pending_payment')"
                     >
                       <font-awesome-icon icon="fa-solid fa-rotate-left" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puede(res, 'checked_in')"
-                      @click="abrirModalEdicion(res, true)"
                       class="btn btn-sm btn-outline-primary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Hacer check-in"
+                      @click="abrirModalEdicion(res, true)"
                     >
                       <font-awesome-icon icon="fa-solid fa-door-open" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puedeEditar && !['checked_out', 'cancelled'].includes(res.status)"
-                      @click="abrirModalEdicion(res, false)"
                       class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Editar datos de la reserva"
+                      @click="abrirModalEdicion(res, false)"
                     >
                       <font-awesome-icon icon="fa-regular fa-pen-to-square" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puede(res, 'checked_out')"
-                      @click="actualizarEstado(res, 'checked_out')"
                       class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Hacer check-out"
+                      @click="actualizarEstado(res, 'checked_out')"
                     >
                       <font-awesome-icon icon="fa-solid fa-right-from-bracket" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puedeVerFolio && ['checked_in', 'checked_out'].includes(res.status)"
-                      @click="abrirModalFactura(res)"
                       class="btn btn-sm btn-outline-info rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Ver folio / cuenta del huésped"
+                      @click="abrirModalFolio(res)"
                     >
                       <font-awesome-icon icon="fa-solid fa-receipt" class="fs-6" />
                     </button>
 
                     <button
                       v-if="puede(res, 'cancelled')"
-                      @click="actualizarEstado(res, 'cancelled')"
                       class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm action-btn"
                       title="Cancelar reserva"
+                      @click="actualizarEstado(res, 'cancelled')"
                     >
                       <font-awesome-icon icon="fa-solid fa-xmark" class="fs-6" />
                     </button>
@@ -556,16 +541,16 @@ onMounted(() => {
           </span>
           <div class="btn-group shadow-sm">
             <button
-              @click="cambiarPagina(paginaActual - 1)"
               :disabled="paginaActual === 1"
               class="btn btn-sm btn-white border"
+              @click="cambiarPagina(paginaActual - 1)"
             >
               <font-awesome-icon icon="fa-solid fa-chevron-left" class="me-1" /> Anterior
             </button>
             <button
-              @click="cambiarPagina(paginaActual + 1)"
               :disabled="paginaActual >= totalPaginas"
               class="btn btn-sm btn-white border"
+              @click="cambiarPagina(paginaActual + 1)"
             >
               Siguiente <font-awesome-icon icon="fa-solid fa-chevron-right" class="ms-1" />
             </button>
@@ -577,26 +562,17 @@ onMounted(() => {
     <ModalEdicionReserva
       :show="mostrarModalEdicion"
       :reserva="reservaAEditar"
-      :modoCheckIn="esModoCheckIn"
+      :modo-check-in="esModoCheckIn"
       @close="mostrarModalEdicion = false"
       @actualizado="refrescarTabla"
     />
-    <ModalFactura
-      :show="mostrarModalFactura"
-      :reserva="reservaParaFactura"
-      @close="mostrarModalFactura = false"
-    />
+    <ModalFolio :show="mostrarModalFolio" :reserva="reservaParaFolio" @close="mostrarModalFolio = false" />
   </div>
 </template>
 
 <style scoped>
-
 .eco-card {
-  background: linear-gradient(
-    135deg,
-    rgba(139, 207, 91, 0.08) 0%,
-    var(--k-cream) 100%
-  );
+  background: linear-gradient(135deg, rgba(139, 207, 91, 0.08) 0%, var(--k-cream) 100%);
   border: 1px solid var(--k-border);
 }
 

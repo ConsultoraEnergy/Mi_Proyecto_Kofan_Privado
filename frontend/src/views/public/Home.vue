@@ -98,18 +98,17 @@ onMounted(() => {
     <section id="hero-brand" class="position-relative">
       <h1 class="visually-hidden">{{ configStore.hotelName }}</h1>
       <div class="hero-overlay"></div>
-      
+
       <!-- CONTENEDOR DEL BUSCADOR FLOTANTE EN EL CENTRO -->
       <!-- 'top-50 start-50 translate-middle' lo centra perfectamente -->
-      <div class="position-absolute start-50 translate-middle w-100 px-3 search-wrapper" style="top: 60%;">
-        <SearchAvailability @habitacionEncontrada="procesarBusqueda" />
+      <div class="position-absolute start-50 translate-middle w-100 px-3 search-wrapper" style="top: 60%">
+        <SearchAvailability @habitacion-encontrada="procesarBusqueda" />
       </div>
     </section>
 
     <!-- 2. CATÁLOGO DE HABITACIONES -->
     <!-- Quitamos mt-5 ya que el buscador ahora está en el centro del hero y no choca con esta sección -->
     <section id="catalogo" class="catalogo-section py-5">
-
       <div v-if="loadingRooms" class="container pb-5 text-center">
         <div class="empty-state">Cargando alojamientos disponibles...</div>
       </div>
@@ -126,7 +125,12 @@ onMounted(() => {
       </div>
 
       <template v-else>
-        <div v-for="(seccion, idx) in secciones" :key="seccion.code" class="container" :class="idx === secciones.length - 1 ? 'pb-5' : 'mb-5'">
+        <div
+          v-for="(seccion, idx) in secciones"
+          :key="seccion.code"
+          class="container"
+          :class="idx === secciones.length - 1 ? 'pb-5' : 'mb-5'"
+        >
           <div class="d-flex align-items-center mb-4">
             <div class="linea-verde"></div>
             <h3 class="mx-3 fw-bold verde-brand titulo-categoria">{{ seccion.name }}</h3>
@@ -135,8 +139,8 @@ onMounted(() => {
             <RoomCard
               v-for="room in seccion.rooms"
               :key="room.id"
-              :habitacion="room"
               :ref="(el) => registrarTarjeta(room.id, el)"
+              :habitacion="room"
             />
           </div>
         </div>
@@ -144,7 +148,7 @@ onMounted(() => {
     </section>
 
     <!-- 3. EXPERIENCIAS -->
-    <section class="experiencias" id="experiencias">
+    <section id="experiencias" class="experiencias">
       <div class="container">
         <div class="text-center mb-5">
           <span class="subtitulo">Vive lo Auténtico</span>
@@ -178,8 +182,18 @@ onMounted(() => {
           <h2 class="titulo-seccion">Un vistazo a nuestro paraíso</h2>
         </div>
         <div class="preview-grid">
-          <div v-for="foto in fotosPreview" :key="foto.id" class="preview-item" @click="$router.push({ name: 'gallery' })">
-            <img :src="assetUrl(foto.url)" :alt="foto.title || configStore.hotelName" loading="lazy" @error="$event.target.style.display='none'" />
+          <div
+            v-for="foto in fotosPreview"
+            :key="foto.id"
+            class="preview-item"
+            @click="$router.push({ name: 'gallery' })"
+          >
+            <img
+              :src="assetUrl(foto.url)"
+              :alt="foto.title || configStore.hotelName"
+              loading="lazy"
+              @error="$event.target.style.display = 'none'"
+            />
           </div>
           <div class="preview-item preview-item-cta" @click="$router.push({ name: 'gallery' })">
             <div class="cta-content">
@@ -192,26 +206,35 @@ onMounted(() => {
     </section>
 
     <!-- 5. UBICACIÓN -->
-    <section v-if="tieneUbicacion" class="ubicacion" id="donde-estamos">
+    <section v-if="tieneUbicacion" id="donde-estamos" class="ubicacion">
       <div class="divisor-entrada-verde">
-        <svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,0V120H1200V0c-150,80-350,120-600,120S150,80,0,0Z" fill="var(--k-forest-soft)"></path></svg>
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+          <path d="M0,0V120H1200V0c-150,80-350,120-600,120S150,80,0,0Z" fill="var(--k-forest-soft)"></path>
+        </svg>
       </div>
       <div class="container mt-5">
         <div class="text-center mb-5">
           <span class="subtitulo-blanco">¿Cómo llegar?</span>
-          <h2 class="titulo-seccion-blanco">Nuestra ubicación<template v-if="configStore.data.city"> en {{ configStore.data.city }}</template></h2>
+          <h2 class="titulo-seccion-blanco">
+            Nuestra ubicación<template v-if="configStore.data.city"> en {{ configStore.data.city }}</template>
+          </h2>
           <p class="parrafo-ubicacion">
-            Nos encontramos en <strong>{{ ubicacionTexto }}</strong>.
+            Nos encontramos en <strong>{{ ubicacionTexto }}</strong
+            >.
           </p>
         </div>
         <div class="mapa-wrapper shadow-soft">
-          <iframe :src="mapaUrl" :title="`Mapa de ${configStore.hotelName}`" width="100%" height="450" style="border: 0" loading="lazy"></iframe>
+          <iframe
+            :src="mapaUrl"
+            :title="`Mapa de ${configStore.hotelName}`"
+            width="100%"
+            height="450"
+            style="border: 0"
+            loading="lazy"
+          ></iframe>
         </div>
       </div>
     </section>
-
-  
-
   </main>
 </template>
 
@@ -223,7 +246,11 @@ main {
   font-family: "Forum", serif;
 }
 
-button, .btn, .subtitulo, .subtitulo-blanco, h3 {
+button,
+.btn,
+.subtitulo,
+.subtitulo-blanco,
+h3 {
   font-family: "Handlee", cursive;
 }
 
@@ -232,14 +259,14 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
 ========================================== */
 #hero-brand {
   position: relative;
-  min-height: 104vh; 
+  min-height: 104vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: url('@/img/portadaimg.jpg');  
+  background-image: url("@/img/portadaimg.jpg");
   background-size: cover;
   background-position: center;
-  background-attachment: fixed; 
+  background-attachment: fixed;
   margin-top: -80px; /* Sube la imagen debajo del Navbar si tu navbar es transparente */
   padding-top: 80px;
 }
@@ -282,7 +309,7 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
 }
 
 .booking-widget {
-  border-radius: 50px; 
+  border-radius: 50px;
 }
 
 .input-group-custom {
@@ -331,7 +358,7 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
     font-size: 2.5rem;
   }
   .booking-widget {
-    border-radius: 20px; 
+    border-radius: 20px;
     padding: 15px !important;
   }
   .input-group-custom {
@@ -344,7 +371,6 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
   .input-group-custom:last-of-type {
     border-bottom: none;
   }
-
 }
 
 .search-wrapper {
@@ -357,37 +383,44 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
   background-color: var(--k-cream);
 }
 
-.verde-brand { color: var(--k-forest); }
-.linea-verde { height: 4px; width: 50px; background-color: var(--k-apple); border-radius: 2px; }
+.verde-brand {
+  color: var(--k-forest);
+}
+.linea-verde {
+  height: 4px;
+  width: 50px;
+  background-color: var(--k-apple);
+  border-radius: 2px;
+}
 
 .titulo-categoria {
-  font-size: 2.5rem; 
-  font-family: "Handlee", cursive; 
-  letter-spacing: 1px; 
+  font-size: 2.5rem;
+  font-family: "Handlee", cursive;
+  letter-spacing: 1px;
 }
 
 @media (max-width: 768px) {
   .titulo-categoria {
-    font-size: 1.8rem; 
+    font-size: 1.8rem;
   }
 }
 
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(1, 1fr); 
+  grid-template-columns: repeat(1, 1fr);
   gap: 30px;
   width: 100%;
 }
 
 @media (min-width: 768px) {
   .rooms-grid {
-    grid-template-columns: repeat(2, 1fr); 
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (min-width: 1024px) {
   .rooms-grid {
-    grid-template-columns: repeat(3, 1fr); 
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -398,8 +431,9 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
   padding: 2rem;
   color: var(--k-muted, #5f6f65);
 }
-.empty-state--warning { color: var(--k-forest); }
-
+.empty-state--warning {
+  color: var(--k-forest);
+}
 
 /* --- EXPERIENCIAS --- */
 .experiencias {
@@ -448,7 +482,9 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
 }
 
 /* --- GALERÍA PREVIEW --- */
-.galeria-preview { background: #fff; }
+.galeria-preview {
+  background: #fff;
+}
 
 .preview-grid {
   display: grid;
@@ -473,7 +509,9 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
   transition: transform 0.4s ease;
 }
 
-.preview-item:hover img { transform: scale(1.08); }
+.preview-item:hover img {
+  transform: scale(1.08);
+}
 
 .preview-item-cta {
   background: var(--k-forest);
@@ -519,11 +557,14 @@ button, .btn, .subtitulo, .subtitulo-blanco, h3 {
 }
 
 @media (max-width: 768px) {
-  .preview-grid { grid-template-columns: repeat(2, 1fr); }
+  .preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 480px) {
-  .preview-grid { grid-template-columns: 1fr; }
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
 }
-
 </style>

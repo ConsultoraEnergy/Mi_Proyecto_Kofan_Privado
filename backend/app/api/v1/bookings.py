@@ -41,8 +41,9 @@ async def create_manual_booking(
 @router.get("", response_model=BookingPage)
 async def list_bookings(
     _: Annotated[dict, Depends(require_permission(Permission.BOOKINGS_READ_ALL))],
-    status_filter: str | None = Query(default=None, alias="status", max_length=200,
-                                      description="Estados separados por coma"),
+    status_filter: str | None = Query(
+        default=None, alias="status", max_length=200, description="Estados separados por coma"
+    ),
     q: str | None = Query(default=None, max_length=100),
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),

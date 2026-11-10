@@ -2,6 +2,7 @@
 RBAC por permisos (7.7). Los endpoints exigen permisos concretos, no roles; el mapa rol -> permisos
 vive solo aquí.
 """
+
 from enum import StrEnum
 
 
@@ -41,20 +42,22 @@ class Permission(StrEnum):
 
 ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
     Role.ADMIN: frozenset(Permission),
-    Role.RECEPTIONIST: frozenset({
-        Permission.USERS_READ,
-        Permission.USERS_CREATE,
-        Permission.USERS_UPDATE,
-        Permission.ROOMS_READ_ALL,
-        Permission.BOOKINGS_READ_ALL,
-        Permission.BOOKINGS_CREATE_MANUAL,
-        Permission.BOOKINGS_UPDATE,
-        Permission.BOOKINGS_CHANGE_STATUS,
-        Permission.BOOKINGS_VIEW_RECEIPTS,
-        Permission.FOLIOS_READ,
-        Permission.FOLIOS_WRITE,
-        Permission.DASHBOARD_READ,
-    }),
+    Role.RECEPTIONIST: frozenset(
+        {
+            Permission.USERS_READ,
+            Permission.USERS_CREATE,
+            Permission.USERS_UPDATE,
+            Permission.ROOMS_READ_ALL,
+            Permission.BOOKINGS_READ_ALL,
+            Permission.BOOKINGS_CREATE_MANUAL,
+            Permission.BOOKINGS_UPDATE,
+            Permission.BOOKINGS_CHANGE_STATUS,
+            Permission.BOOKINGS_VIEW_RECEIPTS,
+            Permission.FOLIOS_READ,
+            Permission.FOLIOS_WRITE,
+            Permission.DASHBOARD_READ,
+        }
+    ),
     Role.CLIENT: frozenset(),
 }
 

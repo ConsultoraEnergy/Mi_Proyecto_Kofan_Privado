@@ -3,6 +3,7 @@
     <div class="input-group">
       <input
         :id="id || undefined"
+        v-model="model"
         :type="inputType"
         class="form-control custom-input border-end-0 shadow-none"
         :class="{ 'is-invalid': error }"
@@ -10,16 +11,15 @@
         :autocomplete="autocomplete"
         :required="required"
         :minlength="minlength || undefined"
-        v-model="model"
       />
 
       <button
         type="button"
         class="input-group-text bg-white border-start-0 custom-icon-container"
         :class="{ 'border-danger': error }"
-        @click="toggle"
         :title="visible ? 'Ocultar contraseña' : 'Mostrar contraseña'"
         :aria-label="visible ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+        @click="toggle"
       >
         <font-awesome-icon :icon="icon" class="text-muted" />
       </button>

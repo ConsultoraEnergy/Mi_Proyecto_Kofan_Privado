@@ -23,6 +23,7 @@ def _new_code(prefix: str) -> str:
 # Noches ocupadas (6.1): índice único (room_id, night)
 # ---------------------------------------------------------------------------
 
+
 async def reserve_nights(room_id: ObjectId, booking_id: ObjectId, nights: list[date]) -> None:
     """Ocupa las noches indicadas. Si alguna ya pertenece a otra reserva, deshace lo insertado
     por esta llamada y lanza Conflict. El índice único hace imposible la doble reserva aunque
@@ -31,7 +32,13 @@ async def reserve_nights(room_id: ObjectId, booking_id: ObjectId, nights: list[d
         return
     now = utcnow()
     docs = [
-        {"_id": ObjectId(), "room_id": room_id, "night": date_to_datetime(n), "booking_id": booking_id, "created_at": now}
+        {
+            "_id": ObjectId(),
+            "room_id": room_id,
+            "night": date_to_datetime(n),
+            "booking_id": booking_id,
+            "created_at": now,
+        }
         for n in nights
     ]
     try:
@@ -69,6 +76,7 @@ async def room_has_bookings(room_id: ObjectId) -> bool:
 # Reservas
 # ---------------------------------------------------------------------------
 
+
 async def insert_with_nights(doc: dict, code_prefix: str) -> dict:
     booking_id = ObjectId()
     doc = {**doc, "_id": booking_id}
@@ -92,8 +100,9 @@ async def get(booking_id: ObjectId) -> dict | None:
     return await get_db().bookings.find_one({"_id": booking_id})
 
 
-async def update(booking_id: ObjectId, set_fields: dict, *, expected_status: str | None = None,
-                 push: dict | None = None) -> dict | None:
+async def update(
+    booking_id: ObjectId, set_fields: dict, *, expected_status: str | None = None, push: dict | None = None
+) -> dict | None:
     """Actualización con control optimista del estado: si otro usuario cambió el estado entretanto,
     no se aplica y devuelve None."""
     query: dict = {"_id": booking_id}
@@ -131,22 +140,32 @@ async def search(statuses: list[str] | None, q: str | None, skip: int, limit: in
             {"guest.document_number": {"$regex": pattern, "$options": "i"}},
             {"room.number": {"$regex": pattern, "$options": "i"}},
         ]
-    result = await (await get_db().bookings.aggregate([
-        {"$match": query},
-        {"$facet": {
-            "items": [{"$sort": {"check_in": -1, "created_at": -1}}, {"$skip": skip}, {"$limit": limit}],
-            "total": [{"$count": "n"}],
-        }},
-    ])).to_list(1)
+    result = await (
+        await get_db().bookings.aggregate(
+            [
+                {"$match": query},
+                {
+                    "$facet": {
+                        "items": [{"$sort": {"check_in": -1, "created_at": -1}}, {"$skip": skip}, {"$limit": limit}],
+                        "total": [{"$count": "n"}],
+                    }
+                },
+            ]
+        )
+    ).to_list(1)
     facet = result[0] if result else {"items": [], "total": []}
     return facet["items"], (facet["total"][0]["n"] if facet["total"] else 0)
 
 
 async def count_by_status(statuses: list[str]) -> dict[str, int]:
-    rows = await (await get_db().bookings.aggregate([
-        {"$match": {"status": {"$in": statuses}}},
-        {"$group": {"_id": "$status", "n": {"$sum": 1}}},
-    ])).to_list(None)
+    rows = await (
+        await get_db().bookings.aggregate(
+            [
+                {"$match": {"status": {"$in": statuses}}},
+                {"$group": {"_id": "$status", "n": {"$sum": 1}}},
+            ]
+        )
+    ).to_list(None)
     counts = {s: 0 for s in statuses}
     counts.update({r["_id"]: r["n"] for r in rows})
     return counts
@@ -154,18 +173,27 @@ async def count_by_status(statuses: list[str]) -> dict[str, int]:
 
 async def booked_ranges(room_id: ObjectId, from_date: date, to_date: date) -> list[dict]:
     """8.4: solo reservas activas dentro de la ventana consultada."""
-    return await get_db().bookings.find(
-        {
-            "room_id": room_id,
-            "status": {"$in": [s.value for s in ACTIVE_STATUSES]},
-            "check_out": {"$gt": date_to_datetime(from_date)},
-            "check_in": {"$lt": date_to_datetime(to_date)},
-        },
-        {"check_in": 1, "check_out": 1, "_id": 0},
-    ).sort("check_in", 1).to_list(1000)
+    return (
+        await get_db()
+        .bookings.find(
+            {
+                "room_id": room_id,
+                "status": {"$in": [s.value for s in ACTIVE_STATUSES]},
+                "check_out": {"$gt": date_to_datetime(from_date)},
+                "check_in": {"$lt": date_to_datetime(to_date)},
+            },
+            {"check_in": 1, "check_out": 1, "_id": 0},
+        )
+        .sort("check_in", 1)
+        .to_list(1000)
+    )
 
 
 async def expired_unpaid(now) -> list[dict]:
-    return await get_db().bookings.find(
-        {"status": "pending_payment", "payment_due_at": {"$lt": now}},
-    ).to_list(500)
+    return (
+        await get_db()
+        .bookings.find(
+            {"status": "pending_payment", "payment_due_at": {"$lt": now}},
+        )
+        .to_list(500)
+    )

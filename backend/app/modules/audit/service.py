@@ -1,4 +1,5 @@
 """Registro de auditoría genérico (habitaciones, reservas, usuarios...)."""
+
 from datetime import datetime
 from typing import Any
 
@@ -69,15 +70,17 @@ async def record(
     label: str | None = None,
     changes: list[dict] | None = None,
 ) -> None:
-    await get_db().audit_logs.insert_one({
-        "entity": entity,
-        "entity_id": str(entity_id),
-        "entity_label": label,
-        "action": action,
-        "actor": actor,
-        "changes": changes or [],
-        "created_at": utcnow(),
-    })
+    await get_db().audit_logs.insert_one(
+        {
+            "entity": entity,
+            "entity_id": str(entity_id),
+            "entity_label": label,
+            "action": action,
+            "actor": actor,
+            "changes": changes or [],
+            "created_at": utcnow(),
+        }
+    )
 
 
 async def list_logs(entity: str | None, entity_id: str | None, page: int, limit: int) -> AuditPage:

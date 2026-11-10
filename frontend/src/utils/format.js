@@ -20,9 +20,11 @@ export function formatDate(isoDate, options = { day: "2-digit", month: "short", 
 /** Instante ISO ("2026-11-09T21:15:00Z") -> fecha y hora en la zona del hotel. */
 export function formatDateTime(isoInstant) {
   if (!isoInstant) return "";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short", timeZone: HOTEL_TIMEZONE }).format(
-    new Date(isoInstant),
-  );
+  return new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: HOTEL_TIMEZONE,
+  }).format(new Date(isoInstant));
 }
 
 /** Date local (p. ej. de v-calendar) -> "YYYY-MM-DD" sin desfase de zona horaria. */

@@ -13,6 +13,7 @@ Flujo sin pasarela de pago (el huésped transfiere y sube el comprobante):
                        ▼
                    cancelled   (también por vencimiento del plazo de pago)
 """
+
 from enum import StrEnum
 
 from backend.app.core.errors import Conflict, ValidationFailed

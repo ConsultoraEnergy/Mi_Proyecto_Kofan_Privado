@@ -2,9 +2,12 @@ import apiClient from "@/api/apiClient";
 
 // --- Tipos de habitación: [{ id, code, name, description, is_active, sort_order }] ---
 export const listRoomTypes = (includeInactive = false) =>
-  apiClient.get("/room-types", { params: includeInactive ? { include_inactive: true } : {} }).then((r) => r.data);
+  apiClient
+    .get("/room-types", { params: includeInactive ? { include_inactive: true } : {} })
+    .then((r) => r.data);
 export const createRoomType = (payload) => apiClient.post("/room-types", payload).then((r) => r.data);
-export const updateRoomType = (id, payload) => apiClient.patch(`/room-types/${id}`, payload).then((r) => r.data);
+export const updateRoomType = (id, payload) =>
+  apiClient.patch(`/room-types/${id}`, payload).then((r) => r.data);
 
 // --- Habitaciones ---
 /** params: { room_type, q, include_inactive, page, limit } -> { items, total, page, limit } */
@@ -28,7 +31,9 @@ export const getBookedDates = (id) => apiClient.get(`/rooms/${id}/booked-dates`)
 
 /** Precio calculado por el servidor: { nights, price_per_night, total_amount, deposit_percent, deposit_amount, currency } */
 export const getQuote = (id, checkIn, checkOut) =>
-  apiClient.get(`/rooms/${id}/quote`, { params: { check_in: checkIn, check_out: checkOut } }).then((r) => r.data);
+  apiClient
+    .get(`/rooms/${id}/quote`, { params: { check_in: checkIn, check_out: checkOut } })
+    .then((r) => r.data);
 
 /** { room, quote } o error 404 (code "no_availability") si no hay habitación libre. */
 export const findAvailability = ({ roomType, checkIn, checkOut, guests }) =>

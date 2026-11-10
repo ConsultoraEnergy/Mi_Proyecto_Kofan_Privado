@@ -56,13 +56,13 @@ watch(
 
 <template>
   <div v-if="show" class="modal-backdrop fade show"></div>
-  <div class="modal fade show d-block" tabindex="-1" role="dialog" v-if="show" @click.self="$emit('close')">
+  <div v-if="show" class="modal fade show d-block" tabindex="-1" role="dialog" @click.self="$emit('close')">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
       <div class="modal-content border-0 shadow-lg rounded-4">
-
         <div class="modal-header text-white border-0">
           <h5 class="modal-title fw-bold">
-            <font-awesome-icon icon="fa-solid fa-bell" class="me-2 text-warning" /> Historial de Actividad y Avisos
+            <font-awesome-icon icon="fa-solid fa-bell" class="me-2 text-warning" /> Historial de Actividad y
+            Avisos
           </h5>
           <button type="button" class="btn-close btn-close-white" @click="$emit('close')"></button>
         </div>
@@ -76,30 +76,42 @@ watch(
           <div v-else-if="loadError" class="alert alert-danger m-3 small">{{ loadError }}</div>
 
           <div v-else-if="logs.length === 0" class="text-center py-5 text-muted">
-            <font-awesome-icon icon="fa-solid fa-bell-slash" class="display-4 d-block mx-auto mb-3 text-secondary" />
+            <font-awesome-icon
+              icon="fa-solid fa-bell-slash"
+              class="display-4 d-block mx-auto mb-3 text-secondary"
+            />
             No tienes avisos recientes.
           </div>
 
           <div v-else class="list-group list-group-flush">
-            <div v-for="log in logs" :key="log.id"
-                 class="list-group-item list-group-item-action p-3 border-bottom"
-                 :class="{'bg-white': log.read, 'bg-primary-subtle': !log.read}">
+            <div
+              v-for="log in logs"
+              :key="log.id"
+              class="list-group-item list-group-item-action p-3 border-bottom"
+              :class="{ 'bg-white': log.read, 'bg-primary-subtle': !log.read }"
+            >
               <div class="d-flex align-items-start gap-3">
-
                 <div class="icon-circle shadow-sm flex-shrink-0" :class="`bg-${log.theme || 'primary'}`">
-                  <font-awesome-icon :icon="THEME_ICONS[log.theme] || THEME_ICONS.primary" class="text-white" />
+                  <font-awesome-icon
+                    :icon="THEME_ICONS[log.theme] || THEME_ICONS.primary"
+                    class="text-white"
+                  />
                 </div>
 
                 <div class="flex-grow-1 min-w-0">
                   <div class="d-flex justify-content-between align-items-center mb-1">
-                    <h6 class="mb-0 fw-bold text-truncate pe-3" :class="{'text-dark': log.read, 'text-primary': !log.read}">
+                    <h6
+                      class="mb-0 fw-bold text-truncate pe-3"
+                      :class="{ 'text-dark': log.read, 'text-primary': !log.read }"
+                    >
                       {{ log.title }}
                     </h6>
-                    <small class="text-muted text-nowrap" style="font-size: 0.75rem;">{{ formatDateTime(log.created_at) }}</small>
+                    <small class="text-muted text-nowrap" style="font-size: 0.75rem">{{
+                      formatDateTime(log.created_at)
+                    }}</small>
                   </div>
-                  <p class="mb-0 text-muted small" style="white-space: pre-line;">{{ log.message }}</p>
+                  <p class="mb-0 text-muted small" style="white-space: pre-line">{{ log.message }}</p>
                 </div>
-
               </div>
             </div>
           </div>
@@ -109,15 +121,18 @@ watch(
           <span class="text-muted small">Últimos {{ logs.length }} avisos registrados</span>
 
           <div class="d-flex gap-2">
-            <button @click="marcarTodasComoLeidas" class="btn btn-sm btn-outline-secondary rounded-pill px-3" :disabled="!logs.length">
+            <button
+              class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+              :disabled="!logs.length"
+              @click="marcarTodasComoLeidas"
+            >
               <font-awesome-icon icon="fa-solid fa-check" class="me-1" /> Marcar todas leídas
             </button>
-            <button @click="$emit('close')" class="btn btn-sm btn-dark rounded-pill px-4 shadow-sm">
+            <button class="btn btn-sm btn-dark rounded-pill px-4 shadow-sm" @click="$emit('close')">
               Cerrar
             </button>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -127,8 +142,13 @@ watch(
 .modal-header {
   background-color: var(--k-forest-soft);
 }
-.modal-backdrop { background-color: var(--k-forest); }
-.modal { display: block; z-index: 1055; }
+.modal-backdrop {
+  background-color: var(--k-forest);
+}
+.modal {
+  display: block;
+  z-index: 1055;
+}
 
 .icon-circle {
   width: 36px;

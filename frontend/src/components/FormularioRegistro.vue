@@ -54,8 +54,11 @@ const isPublicRegister = computed(() => !isEditing.value && !props.mostrarRol);
 // alterar visualmente a un miembro del personal que se esté editando. El backend aplica la regla real.
 const roleOptions = computed(() =>
   Object.entries(ROLE_LABELS)
-    .filter(([value]) =>
-      auth.can(PERMISSIONS.USERS_MANAGE_STAFF) || value === "client" || value === props.usuarioEditando?.role,
+    .filter(
+      ([value]) =>
+        auth.can(PERMISSIONS.USERS_MANAGE_STAFF) ||
+        value === "client" ||
+        value === props.usuarioEditando?.role,
     )
     .map(([value, label]) => ({ value, label })),
 );
@@ -91,7 +94,9 @@ watch(
 );
 
 const passwordError = computed(() =>
-  confirmPassword.value && form.value.password !== confirmPassword.value ? "Las contraseñas no coinciden" : "",
+  confirmPassword.value && form.value.password !== confirmPassword.value
+    ? "Las contraseñas no coinciden"
+    : "",
 );
 
 const isFormInvalid = computed(() => {
@@ -162,7 +167,7 @@ defineExpose({ resetForm });
 </script>
 
 <template>
-  <form @submit.prevent="procesarFormulario" class="row g-3">
+  <form class="row g-3" @submit.prevent="procesarFormulario">
     <div class="col-md-6">
       <label class="form-label fw-semibold small mb-1 text-muted">Tipo Persona</label>
       <select v-model="form.person_type" class="form-select custom-input bg-light" required>
@@ -243,12 +248,24 @@ defineExpose({ resetForm });
 
     <div class="col-md-3">
       <label class="form-label fw-semibold small mb-1">País</label>
-      <input v-model="form.country" type="text" class="form-control custom-input" maxlength="80" autocomplete="country-name" />
+      <input
+        v-model="form.country"
+        type="text"
+        class="form-control custom-input"
+        maxlength="80"
+        autocomplete="country-name"
+      />
     </div>
 
     <div class="col-md-3">
       <label class="form-label fw-semibold small mb-1">Ciudad</label>
-      <input v-model="form.city" type="text" class="form-control custom-input" maxlength="80" autocomplete="address-level2" />
+      <input
+        v-model="form.city"
+        type="text"
+        class="form-control custom-input"
+        maxlength="80"
+        autocomplete="address-level2"
+      />
     </div>
 
     <template v-if="isPublicRegister">
@@ -263,7 +280,9 @@ defineExpose({ resetForm });
         />
       </div>
       <div class="col-md-6">
-        <label class="form-label fw-semibold small mb-1">Confirmar Contraseña <span class="text-danger">*</span></label>
+        <label class="form-label fw-semibold small mb-1"
+          >Confirmar Contraseña <span class="text-danger">*</span></label
+        >
         <PasswordInput
           v-model="confirmPassword"
           placeholder="Repite la clave"
@@ -275,9 +294,18 @@ defineExpose({ resetForm });
 
       <div class="col-12">
         <div class="form-check">
-          <input id="accept-privacy" v-model="acceptPrivacy" class="form-check-input" type="checkbox" required />
+          <input
+            id="accept-privacy"
+            v-model="acceptPrivacy"
+            class="form-check-input"
+            type="checkbox"
+            required
+          />
           <label class="form-check-label small" for="accept-privacy">
-            Autorizo el tratamiento de mis datos personales conforme a la política de tratamiento de datos
+            Autorizo el tratamiento de mis datos personales conforme a la
+            <router-link :to="{ name: 'privacy-policy' }" target="_blank" rel="noopener"
+              >política de tratamiento de datos</router-link
+            >
             (Ley 1581 de 2012). <span class="text-danger">*</span>
           </label>
         </div>
@@ -295,7 +323,11 @@ defineExpose({ resetForm });
     </div>
 
     <div class="col-12 mt-4 d-flex justify-content-center">
-      <button type="submit" class="btn btn-brand px-5 py-2 shadow-sm w-100" :disabled="props.cargando || isFormInvalid">
+      <button
+        type="submit"
+        class="btn btn-brand px-5 py-2 shadow-sm w-100"
+        :disabled="props.cargando || isFormInvalid"
+      >
         <span v-if="props.cargando" class="spinner-border spinner-border-sm me-2"></span>
         {{ props.cargando ? "Procesando..." : isEditing ? "Guardar Cambios" : "Registrar Usuario" }}
       </button>

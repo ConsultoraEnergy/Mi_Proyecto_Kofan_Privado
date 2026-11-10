@@ -16,16 +16,21 @@ const routes = [
   // ZONA PÚBLICA
   {
     path: "/",
-    redirect: "/hospedaje"
+    redirect: "/hospedaje",
   },
 
   {
     path: "/hospedaje",
     component: PublicLayout,
     children: [
-      { path: "", name: "hospedaje-home", component: HomeView }, 
+      { path: "", name: "hospedaje-home", component: HomeView },
       { path: "about", name: "about", component: AboutUs },
       { path: "gallery", name: "gallery", component: PhotoGallery },
+      {
+        path: "politica-de-datos",
+        name: "privacy-policy",
+        component: () => import("@/views/public/PrivacyPolicy.vue"),
+      },
     ],
   },
 
@@ -95,7 +100,6 @@ const routes = [
         name: "account-notifications",
         component: () => import("@/views/app/NotificationsView.vue"),
       },
-      
     ],
   },
 
@@ -141,11 +145,11 @@ const routes = [
         component: () => import("@/views/admin/GalleryManager.vue"),
       },
       {
-        path: 'configuracion',
-        name: 'admin-config',
+        path: "configuracion",
+        name: "admin-config",
         component: ConfiguracionAdmin,
         meta: { permission: PERMISSIONS.SETTINGS_WRITE },
-      }
+      },
     ],
   },
 

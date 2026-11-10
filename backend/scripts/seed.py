@@ -9,6 +9,7 @@ Variables usadas (backend/.env):
 Si no se define SEED_ADMIN_PASSWORD se genera una aleatoria y se muestra UNA sola vez.
 Ejecutarla varias veces no duplica nada ni sobrescribe cambios hechos desde el panel.
 """
+
 import argparse
 import asyncio
 import os
@@ -28,12 +29,36 @@ ROOM_TYPES = [
 ]
 
 DEMO_ROOMS = [
-    {"number": "101", "name": "Cabaña del Río", "type": "cabin", "price_per_night": 220000, "capacity": 4, "bedrooms": 2,
-     "beds": "1 doble, 2 sencillas", "amenities": ["Wifi", "Baño privado", "Terraza"]},
-    {"number": "201", "name": "Familiar Jardín", "type": "family", "price_per_night": 180000, "capacity": 5, "bedrooms": 2,
-     "beds": "2 dobles, 1 sencilla", "amenities": ["Wifi", "Baño privado"]},
-    {"number": "301", "name": "Individual Bosque", "type": "single", "price_per_night": 95000, "capacity": 2, "bedrooms": 1,
-     "beds": "1 doble", "amenities": ["Wifi"]},
+    {
+        "number": "101",
+        "name": "Cabaña del Río",
+        "type": "cabin",
+        "price_per_night": 220000,
+        "capacity": 4,
+        "bedrooms": 2,
+        "beds": "1 doble, 2 sencillas",
+        "amenities": ["Wifi", "Baño privado", "Terraza"],
+    },
+    {
+        "number": "201",
+        "name": "Familiar Jardín",
+        "type": "family",
+        "price_per_night": 180000,
+        "capacity": 5,
+        "bedrooms": 2,
+        "beds": "2 dobles, 1 sencilla",
+        "amenities": ["Wifi", "Baño privado"],
+    },
+    {
+        "number": "301",
+        "name": "Individual Bosque",
+        "type": "single",
+        "price_per_night": 95000,
+        "capacity": 2,
+        "bedrooms": 1,
+        "beds": "1 doble",
+        "amenities": ["Wifi"],
+    },
 ]
 
 
@@ -57,16 +82,18 @@ async def seed_database(db, demo_rooms: bool = False) -> None:
         print(f"✓ Administrador ya existe: {email}")
     else:
         password = os.getenv("SEED_ADMIN_PASSWORD") or secrets.token_urlsafe(14)
-        await db.users.insert_one({
-            "email": email,
-            "full_name": os.getenv("SEED_ADMIN_NAME", "Administrador"),
-            "password_hash": hash_password(password),
-            "role": "admin",
-            "is_active": True,
-            "email_verified": True,
-            "created_at": now,
-            "updated_at": now,
-        })
+        await db.users.insert_one(
+            {
+                "email": email,
+                "full_name": os.getenv("SEED_ADMIN_NAME", "Administrador"),
+                "password_hash": hash_password(password),
+                "role": "admin",
+                "is_active": True,
+                "email_verified": True,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
         print(f"✓ Administrador creado: {email}")
         if not os.getenv("SEED_ADMIN_PASSWORD"):
             print(f"  Contraseña generada (guárdala, no se volverá a mostrar): {password}")
@@ -77,11 +104,20 @@ async def seed_database(db, demo_rooms: bool = False) -> None:
             data = {k: v for k, v in room.items() if k != "type"}
             await db.rooms.update_one(
                 {"number": room["number"]},
-                {"$setOnInsert": {
-                    **data, "room_type_id": types[room["type"]], "description": "", "images": [],
-                    "main_image": None, "is_active": True, "operational_status": "available",
-                    "created_at": now, "updated_at": now, "created_by": "seed",
-                }},
+                {
+                    "$setOnInsert": {
+                        **data,
+                        "room_type_id": types[room["type"]],
+                        "description": "",
+                        "images": [],
+                        "main_image": None,
+                        "is_active": True,
+                        "operational_status": "available",
+                        "created_at": now,
+                        "updated_at": now,
+                        "created_by": "seed",
+                    }
+                },
                 upsert=True,
             )
         print(f"✓ Habitaciones de ejemplo: {len(DEMO_ROOMS)}")

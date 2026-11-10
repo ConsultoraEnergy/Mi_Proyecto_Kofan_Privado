@@ -20,6 +20,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 # --- Autoservicio ---
 
+
 @router.get("/me", response_model=UserOut)
 async def read_me(user: CurrentUser):
     return service.to_out(user)
@@ -41,6 +42,7 @@ async def deactivate_me(user: CurrentUser):
 
 
 # --- Gestión por el personal ---
+
 
 @router.get("", response_model=UserPage)
 async def list_users(

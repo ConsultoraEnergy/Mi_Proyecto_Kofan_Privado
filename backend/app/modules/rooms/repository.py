@@ -4,12 +4,12 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from backend.app.core.errors import Conflict
+from backend.app.core.errors import Conflict, NotFound
 from backend.app.core.time import utcnow
 from backend.app.db.client import get_db
 
-
 # --- Tipos ---
+
 
 async def list_types(include_inactive: bool) -> list[dict]:
     query = {} if include_inactive else {"is_active": True}
@@ -47,6 +47,7 @@ async def update_type(type_id: ObjectId, fields: dict) -> dict | None:
 
 # --- Habitaciones ---
 
+
 async def get(room_id: ObjectId) -> dict | None:
     return await get_db().rooms.find_one({"_id": room_id})
 
@@ -61,14 +62,18 @@ async def insert(doc: dict) -> dict:
     return {**doc, "_id": result.inserted_id}
 
 
-async def update(room_id: ObjectId, set_fields: dict, extra: dict | None = None) -> dict | None:
+async def update(room_id: ObjectId, set_fields: dict, extra: dict | None = None) -> dict:
+    """Actualiza y devuelve el documento. NotFound si se eliminó entre la lectura y la escritura."""
     operation = {"$set": {**set_fields, "updated_at": utcnow()}, **(extra or {})}
     try:
-        return await get_db().rooms.find_one_and_update(
+        updated = await get_db().rooms.find_one_and_update(
             {"_id": room_id}, operation, return_document=ReturnDocument.AFTER
         )
     except DuplicateKeyError as exc:
         raise Conflict("Ya existe una habitación con ese número.") from exc
+    if updated is None:
+        raise NotFound("Habitación no encontrada.")
+    return updated
 
 
 async def delete(room_id: ObjectId) -> bool:
@@ -83,21 +88,31 @@ def _filters(*, include_inactive: bool, room_type_id: ObjectId | None, q: str | 
         query["room_type_id"] = room_type_id
     if q:
         pattern = re.escape(q.strip())  # 5.13: búsqueda sin regex del cliente
-        query["$or"] = [{"name": {"$regex": pattern, "$options": "i"}}, {"number": {"$regex": pattern, "$options": "i"}}]
+        query["$or"] = [
+            {"name": {"$regex": pattern, "$options": "i"}},
+            {"number": {"$regex": pattern, "$options": "i"}},
+        ]
     return query
 
 
-async def search(*, include_inactive: bool, room_type_id: ObjectId | None, q: str | None,
-                 skip: int, limit: int) -> tuple[list[dict], int]:
+async def search(
+    *, include_inactive: bool, room_type_id: ObjectId | None, q: str | None, skip: int, limit: int
+) -> tuple[list[dict], int]:
     query = _filters(include_inactive=include_inactive, room_type_id=room_type_id, q=q)
     # 8.4: conteo y página en una sola consulta
-    result = await (await get_db().rooms.aggregate([
-        {"$match": query},
-        {"$facet": {
-            "items": [{"$sort": {"number": 1}}, {"$skip": skip}, {"$limit": limit}],
-            "total": [{"$count": "n"}],
-        }},
-    ])).to_list(1)
+    result = await (
+        await get_db().rooms.aggregate(
+            [
+                {"$match": query},
+                {
+                    "$facet": {
+                        "items": [{"$sort": {"number": 1}}, {"$skip": skip}, {"$limit": limit}],
+                        "total": [{"$count": "n"}],
+                    }
+                },
+            ]
+        )
+    ).to_list(1)
     facet = result[0] if result else {"items": [], "total": []}
     return facet["items"], (facet["total"][0]["n"] if facet["total"] else 0)
 

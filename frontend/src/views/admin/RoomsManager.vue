@@ -98,8 +98,18 @@ const initialFormState = () => ({
 });
 
 const EDITABLE_FIELDS = [
-  "number", "name", "room_type_id", "description", "price_per_night", "capacity",
-  "bedrooms", "beds", "amenities", "is_active", "operational_status", "main_image",
+  "number",
+  "name",
+  "room_type_id",
+  "description",
+  "price_per_night",
+  "capacity",
+  "bedrooms",
+  "beds",
+  "amenities",
+  "is_active",
+  "operational_status",
+  "main_image",
 ];
 
 const roomForm = ref(initialFormState());
@@ -226,8 +236,18 @@ const camposModificados = () => {
 const guardarHabitacion = async () => {
   const { number, name, price_per_night, room_type_id } = roomForm.value;
 
-  if (!number || !name || !price_per_night || !room_type_id || (!isEditing.value && imagenesParaCargar.value.length === 0)) {
-    Swal.fire({ icon: "error", title: "Faltan algunos datos", text: "Completa la información principal, el tipo de habitación y al menos una foto para continuar." });
+  if (
+    !number ||
+    !name ||
+    !price_per_night ||
+    !room_type_id ||
+    (!isEditing.value && imagenesParaCargar.value.length === 0)
+  ) {
+    Swal.fire({
+      icon: "error",
+      title: "Faltan algunos datos",
+      text: "Completa la información principal, el tipo de habitación y al menos una foto para continuar.",
+    });
     return;
   }
 
@@ -244,10 +264,10 @@ const guardarHabitacion = async () => {
         title: "Espacio actualizado",
         text: "Los cambios de la habitación quedaron guardados.",
         timer: 1800,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } else {
-      const { main_image, ...payload } = normalizar(roomForm.value);
+      const { main_image: _mainImage, ...payload } = normalizar(roomForm.value);
       const creada = await createRoom(payload);
       try {
         await addRoomImages(creada.id, archivos);
@@ -256,17 +276,25 @@ const guardarHabitacion = async () => {
           title: "Espacio registrado",
           text: "La habitación ahora está lista para recibir huéspedes.",
           timer: 1800,
-          showConfirmButton: false
+          showConfirmButton: false,
         });
       } catch (error) {
-        Swal.fire("Habitación creada sin fotos", errorMessage(error, "No se pudieron subir las fotos. Edítala para intentarlo de nuevo."), "warning");
+        Swal.fire(
+          "Habitación creada sin fotos",
+          errorMessage(error, "No se pudieron subir las fotos. Edítala para intentarlo de nuevo."),
+          "warning",
+        );
       }
     }
 
     resetForm();
     if (closeBtnRef.value) closeBtnRef.value.click();
   } catch (error) {
-    Swal.fire({ icon: "error", title: "No pudimos guardar este espacio", text: errorMessage(error, "Verifica los datos o tu conexión e inténtalo nuevamente.") });
+    Swal.fire({
+      icon: "error",
+      title: "No pudimos guardar este espacio",
+      text: errorMessage(error, "Verifica los datos o tu conexión e inténtalo nuevamente."),
+    });
   } finally {
     isSubmitting.value = false;
     await cargarHabitaciones();
@@ -275,34 +303,54 @@ const guardarHabitacion = async () => {
 
 const eliminarHabitacion = async (hab) => {
   const result = await Swal.fire({
-    title: '¿Deseas retirar esta habitación del inventario?', text: "Solo se pueden eliminar habitaciones sin reservas registradas.", icon: 'warning',
-    showCancelButton: true, confirmButtonColor: COLOR_APPLE, cancelButtonColor: COLOR_FOREST,
-    confirmButtonText: 'Sí, retirarla', cancelButtonText: 'Conservar'
+    title: "¿Deseas retirar esta habitación del inventario?",
+    text: "Solo se pueden eliminar habitaciones sin reservas registradas.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: COLOR_APPLE,
+    cancelButtonColor: COLOR_FOREST,
+    confirmButtonText: "Sí, retirarla",
+    cancelButtonText: "Conservar",
   });
 
   if (!result.isConfirmed) return;
   try {
     await deleteRoom(hab.id);
-    Swal.fire({ icon: 'success', title: 'Espacio retirado', text: 'La lista quedó actualizada correctamente.', timer: 1600, showConfirmButton: false });
+    Swal.fire({
+      icon: "success",
+      title: "Espacio retirado",
+      text: "La lista quedó actualizada correctamente.",
+      timer: 1600,
+      showConfirmButton: false,
+    });
     await cargarHabitaciones();
   } catch (error) {
     if (error?.response?.status === 409) {
       Swal.fire(
-        'No se puede eliminar',
+        "No se puede eliminar",
         `${errorMessage(error)} Puedes editarla y desmarcar "Habilitada para la venta" para que deje de ofrecerse.`,
-        'info',
+        "info",
       );
     } else {
-      Swal.fire('No fue posible completar la acción', errorMessage(error, 'Inténtalo nuevamente en unos segundos.'), 'error');
+      Swal.fire(
+        "No fue posible completar la acción",
+        errorMessage(error, "Inténtalo nuevamente en unos segundos."),
+        "error",
+      );
     }
   }
 };
 
 const eliminarImagenExistente = async (imageUrl) => {
   const result = await Swal.fire({
-    title: '¿Borrar esta foto?', text: "Se eliminará permanentemente.", icon: 'warning',
-    showCancelButton: true, confirmButtonColor: COLOR_DANGER, cancelButtonColor: COLOR_FOREST,
-    confirmButtonText: 'Sí, borrar', cancelButtonText: 'Cancelar'
+    title: "¿Borrar esta foto?",
+    text: "Se eliminará permanentemente.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: COLOR_DANGER,
+    cancelButtonColor: COLOR_FOREST,
+    confirmButtonText: "Sí, borrar",
+    cancelButtonText: "Cancelar",
   });
 
   if (!result.isConfirmed) return;
@@ -312,14 +360,15 @@ const eliminarImagenExistente = async (imageUrl) => {
     roomForm.value.main_image = actualizada.main_image || null;
     originalForm.images = [...roomForm.value.images];
     originalForm.main_image = roomForm.value.main_image;
-    Swal.fire({ icon: 'success', title: 'Foto eliminada', timer: 1500, showConfirmButton: false });
+    Swal.fire({ icon: "success", title: "Foto eliminada", timer: 1500, showConfirmButton: false });
     await cargarHabitaciones();
   } catch (error) {
-    Swal.fire('Error', errorMessage(error, 'No se pudo eliminar la foto'), 'error');
+    Swal.fire("Error", errorMessage(error, "No se pudo eliminar la foto"), "error");
   }
 };
 
-const SIN_FOTO = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2260%22%20height%3D%2250%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2060%2050%22%20preserveAspectRatio%3D%22none%22%3E%3Crect%20width%3D%2260%22%20height%3D%2250%22%20fill%3D%22%23eeeeee%22%2F%3E%3Ctext%20text-anchor%3D%22middle%22%20x%3D%2230%22%20y%3D%2230%22%20style%3D%22fill%3A%23aaaaaa%3Bfont-weight%3Abold%3Bfont-size%3A10px%3Bfont-family%3AArial%2CHelvetica%2Csans-serif%22%3ESin%20Foto%3C%2Ftext%3E%3C%2Fsvg%3E';
+const SIN_FOTO =
+  "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2260%22%20height%3D%2250%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2060%2050%22%20preserveAspectRatio%3D%22none%22%3E%3Crect%20width%3D%2260%22%20height%3D%2250%22%20fill%3D%22%23eeeeee%22%2F%3E%3Ctext%20text-anchor%3D%22middle%22%20x%3D%2230%22%20y%3D%2230%22%20style%3D%22fill%3A%23aaaaaa%3Bfont-weight%3Abold%3Bfont-size%3A10px%3Bfont-family%3AArial%2CHelvetica%2Csans-serif%22%3ESin%20Foto%3C%2Ftext%3E%3C%2Fsvg%3E";
 
 const manejarErrorImagen = (e) => {
   e.target.onerror = null;
@@ -358,7 +407,7 @@ const listaAmenidadesBase = [
   "Vista a la Selva",
   "Malla Catamarán",
   "Tina / Jacuzzi",
-  "Balcón"
+  "Balcón",
 ];
 
 // Incluye amenidades ya guardadas en la habitación aunque no estén en la lista base.
@@ -384,12 +433,22 @@ const guardarTipo = async () => {
   guardandoTipo.value = true;
   try {
     const { id, code, name, description, is_active, sort_order } = tipoForm.value;
-    const datos = { name: name.trim(), description: (description || "").trim(), is_active, sort_order: Number(sort_order) || 0 };
+    const datos = {
+      name: name.trim(),
+      description: (description || "").trim(),
+      is_active,
+      sort_order: Number(sort_order) || 0,
+    };
     if (id) await updateRoomType(id, datos);
     else await createRoomType({ code: code.trim().toLowerCase(), ...datos });
     limpiarTipoForm();
     await cargarTipos();
-    Swal.fire({ icon: "success", title: "Tipo de habitación guardado", timer: 1400, showConfirmButton: false });
+    Swal.fire({
+      icon: "success",
+      title: "Tipo de habitación guardado",
+      timer: 1400,
+      showConfirmButton: false,
+    });
   } catch (error) {
     Swal.fire("Error", errorMessage(error, "No se pudo guardar el tipo de habitación."), "error");
   } finally {
@@ -407,15 +466,22 @@ const guardarTipo = async () => {
           <font-awesome-icon icon="fa-solid fa-bed" />
           Gestión de Habitaciones
         </h2>
-        <p class="text-muted mb-0">Organiza disponibilidad, mantenimiento y calendario con una vista clara y serena.</p>
+        <p class="text-muted mb-0">
+          Organiza disponibilidad, mantenimiento y calendario con una vista clara y serena.
+        </p>
       </div>
 
       <div v-if="puedeEditar" class="d-flex gap-2 flex-wrap">
-        <button @click="mostrarTipos = !mostrarTipos" class="btn btn-soft-sky shadow-sm rounded-pill px-4">
+        <button class="btn btn-soft-sky shadow-sm rounded-pill px-4" @click="mostrarTipos = !mostrarTipos">
           <font-awesome-icon icon="fa-solid fa-tag" class="me-2" />
           Tipos de habitación
         </button>
-        <button @click="prepararCreacion" class="btn btn-brand shadow-sm rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#modalHabitacion">
+        <button
+          class="btn btn-brand shadow-sm rounded-pill px-4"
+          data-bs-toggle="modal"
+          data-bs-target="#modalHabitacion"
+          @click="prepararCreacion"
+        >
           <font-awesome-icon icon="fa-solid fa-leaf" class="me-2" />
           Nueva Habitación
         </button>
@@ -440,12 +506,14 @@ const guardarTipo = async () => {
               <td colspan="5" class="text-muted small text-center py-3">Aún no hay tipos registrados.</td>
             </tr>
             <tr v-for="tipo in tiposHabitacion" :key="tipo.id">
-              <td><code>{{ tipo.code }}</code></td>
+              <td>
+                <code>{{ tipo.code }}</code>
+              </td>
               <td>{{ tipo.name }}</td>
               <td>{{ tipo.sort_order }}</td>
               <td>
                 <span class="badge" :class="tipo.is_active ? 'bg-success' : 'bg-secondary'">
-                  {{ tipo.is_active ? 'Activo' : 'Inactivo' }}
+                  {{ tipo.is_active ? "Activo" : "Inactivo" }}
                 </span>
               </td>
               <td class="text-end">
@@ -460,12 +528,27 @@ const guardarTipo = async () => {
       <form class="row g-2 align-items-end" @submit.prevent="guardarTipo">
         <div class="col-md-2">
           <label class="form-label small fw-bold mb-1">Código</label>
-          <input v-model="tipoForm.code" type="text" class="form-control form-control-sm" placeholder="cabana"
-                 :disabled="!!tipoForm.id" required pattern="[a-z0-9\-]{2,40}" title="Minúsculas, números y guiones" />
+          <input
+            v-model="tipoForm.code"
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="cabana"
+            :disabled="!!tipoForm.id"
+            required
+            pattern="[a-z0-9\-]{2,40}"
+            title="Minúsculas, números y guiones"
+          />
         </div>
         <div class="col-md-3">
           <label class="form-label small fw-bold mb-1">Nombre</label>
-          <input v-model="tipoForm.name" type="text" class="form-control form-control-sm" placeholder="Cabaña" required minlength="2" />
+          <input
+            v-model="tipoForm.name"
+            type="text"
+            class="form-control form-control-sm"
+            placeholder="Cabaña"
+            required
+            minlength="2"
+          />
         </div>
         <div class="col-md-3">
           <label class="form-label small fw-bold mb-1">Descripción</label>
@@ -477,15 +560,20 @@ const guardarTipo = async () => {
         </div>
         <div class="col-md-1">
           <div class="form-check mb-1">
-            <input v-model="tipoForm.is_active" class="form-check-input" type="checkbox" id="tipo-activo" />
+            <input id="tipo-activo" v-model="tipoForm.is_active" class="form-check-input" type="checkbox" />
             <label class="form-check-label small" for="tipo-activo">Activo</label>
           </div>
         </div>
         <div class="col-md-2 d-flex gap-1">
           <button type="submit" class="btn btn-sm btn-brand flex-grow-1" :disabled="guardandoTipo">
-            {{ tipoForm.id ? 'Actualizar' : 'Agregar' }}
+            {{ tipoForm.id ? "Actualizar" : "Agregar" }}
           </button>
-          <button v-if="tipoForm.id" type="button" class="btn btn-sm btn-light border" @click="limpiarTipoForm">
+          <button
+            v-if="tipoForm.id"
+            type="button"
+            class="btn btn-sm btn-light border"
+            @click="limpiarTipoForm"
+          >
             <font-awesome-icon icon="fa-solid fa-xmark" />
           </button>
         </div>
@@ -499,17 +587,29 @@ const guardarTipo = async () => {
           Todas
           <span class="chip-count">{{ roomCounts.all }}</span>
         </button>
-        <button class="filter-chip" :class="{ active: roomFilter === 'active' }" @click="roomFilter = 'active'">
+        <button
+          class="filter-chip"
+          :class="{ active: roomFilter === 'active' }"
+          @click="roomFilter = 'active'"
+        >
           <font-awesome-icon icon="fa-solid fa-leaf" class="me-2" />
           Habilitadas
           <span class="chip-count">{{ roomCounts.active }}</span>
         </button>
-        <button class="filter-chip" :class="{ active: roomFilter === 'inactive' }" @click="roomFilter = 'inactive'">
+        <button
+          class="filter-chip"
+          :class="{ active: roomFilter === 'inactive' }"
+          @click="roomFilter = 'inactive'"
+        >
           <font-awesome-icon icon="fa-solid fa-ban" class="me-2" />
           No habilitadas
           <span class="chip-count">{{ roomCounts.inactive }}</span>
         </button>
-        <button class="filter-chip" :class="{ active: roomFilter === 'attention' }" @click="roomFilter = 'attention'">
+        <button
+          class="filter-chip"
+          :class="{ active: roomFilter === 'attention' }"
+          @click="roomFilter = 'attention'"
+        >
           <font-awesome-icon icon="fa-solid fa-broom" class="me-2" />
           Limpieza / mantenimiento
           <span class="chip-count">{{ roomCounts.attention }}</span>
@@ -521,8 +621,13 @@ const guardarTipo = async () => {
           <option value="">Todos los tipos</option>
           <option v-for="tipo in tiposHabitacion" :key="tipo.id" :value="tipo.code">{{ tipo.name }}</option>
         </select>
-        <input v-model="busqueda" type="text" class="form-control form-control-sm rounded-pill" style="max-width: 240px"
-               placeholder="Buscar por nombre o número..." />
+        <input
+          v-model="busqueda"
+          type="text"
+          class="form-control form-control-sm rounded-pill"
+          style="max-width: 240px"
+          placeholder="Buscar por nombre o número..."
+        />
       </div>
     </div>
 
@@ -542,97 +647,111 @@ const guardarTipo = async () => {
           <tbody>
             <tr v-if="isLoading">
               <td colspan="6" class="text-center py-5">
-                <div class="spinner-border" style="color: var(--k-apple);" role="status"></div>
+                <div class="spinner-border" style="color: var(--k-apple)" role="status"></div>
                 <p class="brand-handmade mt-3 mb-0">Preparando los espacios del hotel...</p>
               </td>
             </tr>
 
             <tr v-else-if="habitacionesFiltradas.length === 0">
               <td colspan="6" class="text-center text-muted py-5">
-                <font-awesome-icon icon="fa-solid fa-leaf" class="display-6 mb-3 d-block mx-auto" style="color: var(--k-apple);" />
+                <font-awesome-icon
+                  icon="fa-solid fa-leaf"
+                  class="display-6 mb-3 d-block mx-auto"
+                  style="color: var(--k-apple)"
+                />
                 <p class="empty-state-copy mb-1">Aún no hay habitaciones para este filtro.</p>
                 <small>Cuando registres un nuevo espacio, aparecerá aquí.</small>
               </td>
             </tr>
 
             <template v-else>
-            <tr v-for="hab in habitacionesFiltradas" :key="hab.id" class="align-middle">
-              <td class="ps-4">
-                <div class="d-flex align-items-center">
-                  <img
-                    :src="assetUrl(hab.main_image) || SIN_FOTO"
-                    class="rounded me-3 border shadow-sm"
-                    style="width: 60px; height: 50px; object-fit: cover;"
-                    alt=""
-                    @error="manejarErrorImagen"
-                  >
-                  <div>
-                    <div class="fw-bold text-brand">{{ hab.name }}</div>
-                    <small class="text-muted">N° {{ hab.number }}<span v-if="hab.room_type"> · {{ hab.room_type.name }}</span></small>
+              <tr v-for="hab in habitacionesFiltradas" :key="hab.id" class="align-middle">
+                <td class="ps-4">
+                  <div class="d-flex align-items-center">
+                    <img
+                      :src="assetUrl(hab.main_image) || SIN_FOTO"
+                      class="rounded me-3 border shadow-sm"
+                      style="width: 60px; height: 50px; object-fit: cover"
+                      alt=""
+                      @error="manejarErrorImagen"
+                    />
+                    <div>
+                      <div class="fw-bold text-brand">{{ hab.name }}</div>
+                      <small class="text-muted"
+                        >N° {{ hab.number
+                        }}<span v-if="hab.room_type"> · {{ hab.room_type.name }}</span></small
+                      >
+                    </div>
                   </div>
-                </div>
-              </td>
+                </td>
 
-              <td class="fw-semibold text-brand">
-                {{ money(hab.price_per_night) }}
-              </td>
+                <td class="fw-semibold text-brand">
+                  {{ money(hab.price_per_night) }}
+                </td>
 
-              <td class="text-muted">
-                {{ hab.capacity }} pers.
-              </td>
+                <td class="text-muted">{{ hab.capacity }} pers.</td>
 
-              <td>
-                <span class="badge px-3 py-2 rounded-pill" :class="statusMeta(hab.operational_status).badge">
-                  <font-awesome-icon :icon="statusMeta(hab.operational_status).icon" class="me-1" />
-                  {{ statusMeta(hab.operational_status).label }}
-                </span>
-                <div v-if="!hab.is_active" class="small text-muted mt-1">
-                  <font-awesome-icon icon="fa-solid fa-eye-slash" class="me-1" /> No habilitada para la venta
-                </div>
-              </td>
-
-              <td class="text-center align-middle">
-                <button v-if="puedeReservar" @click="abrirCalendario(hab)" class="btn btn-sm btn-soft-sky rounded-pill px-3 fw-medium shadow-sm" style="font-size: 0.82rem;">
-                  <font-awesome-icon icon="fa-solid fa-calendar-days" class="me-1" /> Ver Fechas
-                </button>
-              </td>
-
-              <td class="text-center align-middle">
-                <div class="d-flex justify-content-center gap-2">
-                  <button
-                    v-if="puedeVerHistorial"
-                    class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                    style="width: 35px; height: 35px;"
-                    @click="abrirHistorial(hab)"
-                    title="Historial de cambios"
+                <td>
+                  <span
+                    class="badge px-3 py-2 rounded-pill"
+                    :class="statusMeta(hab.operational_status).badge"
                   >
-                    <font-awesome-icon icon="fa-solid fa-clock" class="fs-6" />
+                    <font-awesome-icon :icon="statusMeta(hab.operational_status).icon" class="me-1" />
+                    {{ statusMeta(hab.operational_status).label }}
+                  </span>
+                  <div v-if="!hab.is_active" class="small text-muted mt-1">
+                    <font-awesome-icon icon="fa-solid fa-eye-slash" class="me-1" /> No habilitada para la
+                    venta
+                  </div>
+                </td>
+
+                <td class="text-center align-middle">
+                  <button
+                    v-if="puedeReservar"
+                    class="btn btn-sm btn-soft-sky rounded-pill px-3 fw-medium shadow-sm"
+                    style="font-size: 0.82rem"
+                    @click="abrirCalendario(hab)"
+                  >
+                    <font-awesome-icon icon="fa-solid fa-calendar-days" class="me-1" /> Ver Fechas
                   </button>
+                </td>
 
-                  <template v-if="puedeEditar">
+                <td class="text-center align-middle">
+                  <div class="d-flex justify-content-center gap-2">
                     <button
-                      class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px;"
-                      data-bs-toggle="modal"
-                      data-bs-target="#modalHabitacion"
-                      @click="prepararEdicion(hab)"
-                      title="Editar habitación"
+                      v-if="puedeVerHistorial"
+                      class="btn btn-sm btn-outline-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
+                      style="width: 35px; height: 35px"
+                      title="Historial de cambios"
+                      @click="abrirHistorial(hab)"
                     >
-                      <font-awesome-icon icon="fa-regular fa-pen-to-square" class="fs-6" />
+                      <font-awesome-icon icon="fa-solid fa-clock" class="fs-6" />
                     </button>
 
-                    <button
-                      class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
-                      style="width: 35px; height: 35px;"
-                      @click="eliminarHabitacion(hab)"
-                      title="Retirar habitación"
-                    >
-                      <font-awesome-icon icon="fa-solid fa-trash" class="fs-6" />
-                    </button>
-                  </template>
-                </div>
-              </td>
-            </tr>
+                    <template v-if="puedeEditar">
+                      <button
+                        class="btn btn-sm btn-outline-secondary rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
+                        style="width: 35px; height: 35px"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalHabitacion"
+                        title="Editar habitación"
+                        @click="prepararEdicion(hab)"
+                      >
+                        <font-awesome-icon icon="fa-regular fa-pen-to-square" class="fs-6" />
+                      </button>
+
+                      <button
+                        class="btn btn-sm btn-outline-danger rounded-circle d-inline-flex align-items-center justify-content-center shadow-sm"
+                        style="width: 35px; height: 35px"
+                        title="Retirar habitación"
+                        @click="eliminarHabitacion(hab)"
+                      >
+                        <font-awesome-icon icon="fa-solid fa-trash" class="fs-6" />
+                      </button>
+                    </template>
+                  </div>
+                </td>
+              </tr>
             </template>
           </tbody>
         </table>
@@ -644,23 +763,31 @@ const guardarTipo = async () => {
       >
         <span class="text-muted small fw-bold">Página {{ paginaActual }} de {{ totalPaginas }}</span>
         <div class="btn-group shadow-sm">
-          <button class="btn btn-sm btn-white border" :disabled="paginaActual === 1" @click="cambiarPagina(paginaActual - 1)">
+          <button
+            class="btn btn-sm btn-white border"
+            :disabled="paginaActual === 1"
+            @click="cambiarPagina(paginaActual - 1)"
+          >
             <font-awesome-icon icon="fa-solid fa-chevron-left" class="me-1" /> Anterior
           </button>
-          <button class="btn btn-sm btn-white border" :disabled="paginaActual >= totalPaginas" @click="cambiarPagina(paginaActual + 1)">
+          <button
+            class="btn btn-sm btn-white border"
+            :disabled="paginaActual >= totalPaginas"
+            @click="cambiarPagina(paginaActual + 1)"
+          >
             Siguiente <font-awesome-icon icon="fa-solid fa-chevron-right" class="ms-1" />
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="puedeEditar" class="modal fade" id="modalHabitacion" tabindex="-1" aria-hidden="true">
+    <div v-if="puedeEditar" id="modalHabitacion" class="modal fade" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg eco-card">
           <div class="modal-header modal-soft-header border-0">
             <h5 class="modal-title section-title mb-0">
               <font-awesome-icon :icon="isEditing ? 'fa-solid fa-bed' : 'fa-solid fa-leaf'" class="me-2" />
-              {{ isEditing ? 'Editar Habitación' : 'Registrar Habitación' }}
+              {{ isEditing ? "Editar Habitación" : "Registrar Habitación" }}
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" @click="resetForm"></button>
           </div>
@@ -668,7 +795,6 @@ const guardarTipo = async () => {
           <form @submit.prevent="guardarHabitacion">
             <div class="modal-body p-4">
               <div class="row g-3">
-
                 <div class="col-md-4">
                   <label class="form-label fw-bold">N° Habitación</label>
                   <input v-model="roomForm.number" type="text" class="form-control" required maxlength="20" />
@@ -676,17 +802,38 @@ const guardarTipo = async () => {
 
                 <div class="col-md-8">
                   <label class="form-label fw-bold">Nombre</label>
-                  <input v-model="roomForm.name" type="text" class="form-control" required minlength="2" maxlength="120" />
+                  <input
+                    v-model="roomForm.name"
+                    type="text"
+                    class="form-control"
+                    required
+                    minlength="2"
+                    maxlength="120"
+                  />
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label fw-bold">Precio por noche</label>
-                  <input v-model="roomForm.price_per_night" type="number" min="1" step="any" class="form-control" required />
+                  <input
+                    v-model="roomForm.price_per_night"
+                    type="number"
+                    min="1"
+                    step="any"
+                    class="form-control"
+                    required
+                  />
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label fw-bold">Capacidad Total (Pers.)</label>
-                  <input v-model="roomForm.capacity" type="number" min="1" max="50" class="form-control" required />
+                  <input
+                    v-model="roomForm.capacity"
+                    type="number"
+                    min="1"
+                    max="50"
+                    class="form-control"
+                    required
+                  />
                 </div>
 
                 <div class="col-md-6">
@@ -694,50 +841,105 @@ const guardarTipo = async () => {
                   <select v-model="roomForm.room_type_id" class="form-select" required>
                     <option value="" disabled>Selecciona una opción...</option>
                     <option v-for="tipo in tiposHabitacion" :key="tipo.id" :value="tipo.id">
-                      {{ tipo.name }}{{ tipo.is_active ? '' : ' (inactivo)' }}
+                      {{ tipo.name }}{{ tipo.is_active ? "" : " (inactivo)" }}
                     </option>
                   </select>
-                  <small v-if="!tiposHabitacion.length" class="text-muted">Primero crea un tipo en "Tipos de habitación".</small>
+                  <small v-if="!tiposHabitacion.length" class="text-muted"
+                    >Primero crea un tipo en "Tipos de habitación".</small
+                  >
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label fw-bold">N° de Habitaciones (Cuartos)</label>
-                  <input v-model="roomForm.bedrooms" type="number" min="1" max="20" class="form-control" required />
+                  <input
+                    v-model="roomForm.bedrooms"
+                    type="number"
+                    min="1"
+                    max="20"
+                    class="form-control"
+                    required
+                  />
                 </div>
 
                 <div class="col-12 mt-3">
                   <label class="form-label fw-bold">Distribución de Camas</label>
-                  <input v-model="roomForm.beds" type="text" class="form-control" maxlength="200" placeholder="Ej: 1 Cama Doble, 2 Sencillas" />
-                  <small class="text-muted">Este texto es el que verá el cliente en la tarjeta principal.</small>
+                  <input
+                    v-model="roomForm.beds"
+                    type="text"
+                    class="form-control"
+                    maxlength="200"
+                    placeholder="Ej: 1 Cama Doble, 2 Sencillas"
+                  />
+                  <small class="text-muted"
+                    >Este texto es el que verá el cliente en la tarjeta principal.</small
+                  >
                 </div>
 
                 <div class="col-md-6 mt-3">
                   <label class="form-label fw-bold">Estado Operativo</label>
-                  <select class="form-select" v-model="roomForm.operational_status">
-                    <option v-for="(meta, value) in OPERATIONAL_STATUS" :key="value" :value="value">{{ meta.label }}</option>
+                  <select v-model="roomForm.operational_status" class="form-select">
+                    <option v-for="(meta, value) in OPERATIONAL_STATUS" :key="value" :value="value">
+                      {{ meta.label }}
+                    </option>
                   </select>
                 </div>
 
                 <div class="col-md-6 mt-3 d-flex align-items-end">
                   <div class="form-check form-switch mb-2">
-                    <input v-model="roomForm.is_active" class="form-check-input" type="checkbox" role="switch" id="room-is-active" />
-                    <label class="form-check-label fw-bold" for="room-is-active">Habilitada para la venta</label>
+                    <input
+                      id="room-is-active"
+                      v-model="roomForm.is_active"
+                      class="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                    />
+                    <label class="form-check-label fw-bold" for="room-is-active"
+                      >Habilitada para la venta</label
+                    >
                   </div>
                 </div>
 
                 <div class="col-12 mt-3">
                   <label class="form-label fw-bold">Descripción de la Habitación</label>
-                  <textarea v-model="roomForm.description" class="form-control border-light-subtle shadow-sm" rows="2" maxlength="3000" placeholder="Ej: Cabaña romántica ideal para parejas..."></textarea>
+                  <textarea
+                    v-model="roomForm.description"
+                    class="form-control border-light-subtle shadow-sm"
+                    rows="2"
+                    maxlength="3000"
+                    placeholder="Ej: Cabaña romántica ideal para parejas..."
+                  ></textarea>
                 </div>
 
                 <div class="col-12 mt-4">
-                  <label class="form-label fw-bold mb-3 border-bottom pb-2 w-100">¿Qué incluye la habitación? (Amenidades)</label>
+                  <label class="form-label fw-bold mb-3 border-bottom pb-2 w-100"
+                    >¿Qué incluye la habitación? (Amenidades)</label
+                  >
                   <div class="row g-2">
-                    <div class="col-md-4 col-sm-6" v-for="(amenidad, index) in listaAmenidades" :key="amenidad">
-                      <div class="form-check form-switch p-2 rounded bg-light border border-light-subtle transition-all"
-                           :class="{ 'border-success bg-success-subtle': roomForm.amenities && roomForm.amenities.includes(amenidad) }">
-                        <input class="form-check-input ms-1 me-2" type="checkbox" role="switch" :id="'amenidad-' + index" :value="amenidad" v-model="roomForm.amenities">
-                        <label class="form-check-label text-dark" :for="'amenidad-' + index" style="cursor: pointer;">
+                    <div
+                      v-for="(amenidad, index) in listaAmenidades"
+                      :key="amenidad"
+                      class="col-md-4 col-sm-6"
+                    >
+                      <div
+                        class="form-check form-switch p-2 rounded bg-light border border-light-subtle transition-all"
+                        :class="{
+                          'border-success bg-success-subtle':
+                            roomForm.amenities && roomForm.amenities.includes(amenidad),
+                        }"
+                      >
+                        <input
+                          :id="'amenidad-' + index"
+                          v-model="roomForm.amenities"
+                          class="form-check-input ms-1 me-2"
+                          type="checkbox"
+                          role="switch"
+                          :value="amenidad"
+                        />
+                        <label
+                          class="form-check-label text-dark"
+                          :for="'amenidad-' + index"
+                          style="cursor: pointer"
+                        >
                           {{ amenidad }}
                         </label>
                       </div>
@@ -745,28 +947,43 @@ const guardarTipo = async () => {
                   </div>
                 </div>
 
-                <div class="col-12 mt-4" v-if="isEditing && roomForm.images && roomForm.images.length">
+                <div v-if="isEditing && roomForm.images && roomForm.images.length" class="col-12 mt-4">
                   <label class="form-label fw-bold mb-1">Fotos Actuales de la Habitación</label>
-                  <p class="text-muted small mb-3">Haz clic en la <font-awesome-icon icon="fa-solid fa-star" class="tone-sand" /> para elegir la foto principal (se guarda con "Guardar cambios").</p>
+                  <p class="text-muted small mb-3">
+                    Haz clic en la <font-awesome-icon icon="fa-solid fa-star" class="tone-sand" /> para elegir
+                    la foto principal (se guarda con "Guardar cambios").
+                  </p>
 
                   <div class="row g-2">
                     <div v-for="imgUrl in roomForm.images" :key="imgUrl" class="col-4 col-md-3">
                       <div
                         class="card h-100 p-1 position-relative border transition-all photo-card"
-                        :class="{ 'border-success border-2 shadow principal-highlight': imgUrl === roomForm.main_image }"
+                        :class="{
+                          'border-success border-2 shadow principal-highlight':
+                            imgUrl === roomForm.main_image,
+                        }"
                       >
-                        <span v-if="imgUrl === roomForm.main_image" class="position-absolute principal-badge rounded-pill bg-success text-white shadow-sm px-2" style="top: -5px; left: -5px; font-size: 0.75rem; z-index: 2;">
+                        <span
+                          v-if="imgUrl === roomForm.main_image"
+                          class="position-absolute principal-badge rounded-pill bg-success text-white shadow-sm px-2"
+                          style="top: -5px; left: -5px; font-size: 0.75rem; z-index: 2"
+                        >
                           Principal
                         </span>
 
-                        <img :src="assetUrl(imgUrl)" class="rounded object-fit-cover w-100" style="height: 90px;" alt="">
+                        <img
+                          :src="assetUrl(imgUrl)"
+                          class="rounded object-fit-cover w-100"
+                          style="height: 90px"
+                          alt=""
+                        />
 
                         <button
                           type="button"
                           class="btn btn-danger btn-sm position-absolute rounded-circle d-inline-flex align-items-center justify-content-center shadow"
-                          style="width: 28px; height: 28px; bottom: 5px; right: 5px;"
-                          @click.stop="eliminarImagenExistente(imgUrl)"
+                          style="width: 28px; height: 28px; bottom: 5px; right: 5px"
                           title="Eliminar foto"
+                          @click.stop="eliminarImagenExistente(imgUrl)"
                         >
                           <font-awesome-icon icon="fa-solid fa-trash" class="image-action-icon" />
                         </button>
@@ -775,9 +992,9 @@ const guardarTipo = async () => {
                           v-if="imgUrl !== roomForm.main_image"
                           type="button"
                           class="btn btn-light btn-sm position-absolute rounded-circle d-inline-flex align-items-center justify-content-center shadow"
-                          style="width: 28px; height: 28px; bottom: 5px; left: 5px;"
-                          @click.stop="seleccionarPrincipal(imgUrl)"
+                          style="width: 28px; height: 28px; bottom: 5px; left: 5px"
                           title="Hacer foto principal"
+                          @click.stop="seleccionarPrincipal(imgUrl)"
                         >
                           <font-awesome-icon icon="fa-solid fa-star" class="image-action-icon tone-sand" />
                         </button>
@@ -795,20 +1012,28 @@ const guardarTipo = async () => {
                     :is-editing="isEditing"
                   />
                 </div>
-
               </div>
             </div>
 
             <div class="modal-footer border-0 p-4 pt-0">
-              <button type="button" class="btn btn-light border px-4 rounded-pill" data-bs-dismiss="modal" ref="closeBtnRef" @click="resetForm">
+              <button
+                ref="closeBtnRef"
+                type="button"
+                class="btn btn-light border px-4 rounded-pill"
+                data-bs-dismiss="modal"
+                @click="resetForm"
+              >
                 Cancelar
               </button>
-              <button type="submit" class="btn btn-brand px-4 rounded-pill shadow-sm" :disabled="isSubmitting">
-                {{ isSubmitting ? 'Guardando...' : (isEditing ? 'Guardar cambios' : 'Guardar habitación') }}
+              <button
+                type="submit"
+                class="btn btn-brand px-4 rounded-pill shadow-sm"
+                :disabled="isSubmitting"
+              >
+                {{ isSubmitting ? "Guardando..." : isEditing ? "Guardar cambios" : "Guardar habitación" }}
               </button>
             </div>
           </form>
-
         </div>
       </div>
     </div>
@@ -818,7 +1043,7 @@ const guardarTipo = async () => {
       :show="modalVisible"
       :habitacion="habitacionSeleccionada"
       @close="cerrarCalendario"
-      @reservaCreada="cargarHabitaciones"
+      @reserva-creada="cargarHabitaciones"
     />
 
     <RoomHistoryModal
@@ -954,8 +1179,12 @@ const guardarTipo = async () => {
   transition: all 0.2s ease-in-out;
 }
 
-.btn-trash { right: 8px; }
-.btn-star { right: 42px; }
+.btn-trash {
+  right: 8px;
+}
+.btn-star {
+  right: 42px;
+}
 
 .photo-card:hover .action-btn {
   opacity: 1;

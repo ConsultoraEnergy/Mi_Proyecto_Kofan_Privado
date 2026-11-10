@@ -5,6 +5,7 @@ Tareas periódicas dentro del proceso web (temporal).
 cancelación usa control optimista), pero en la Fase 3 debe moverse a un worker separado (ARQ).
 Desactívalo con SCHEDULER_ENABLED=false en las réplicas que no deban ejecutarlo.
 """
+
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -28,5 +29,7 @@ def start_scheduler(settings: Settings) -> AsyncIOScheduler | None:
         coalesce=True,
     )
     scheduler.start()
-    logger.info("Scheduler iniciado (revisión de pagos vencidos cada %s min).", settings.booking_expiration_check_minutes)
+    logger.info(
+        "Scheduler iniciado (revisión de pagos vencidos cada %s min).", settings.booking_expiration_check_minutes
+    )
     return scheduler

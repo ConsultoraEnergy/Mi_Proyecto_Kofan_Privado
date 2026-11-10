@@ -4,7 +4,7 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from backend.app.core.errors import Conflict
+from backend.app.core.errors import Conflict, NotFound
 from backend.app.core.time import utcnow
 from backend.app.db.client import get_db
 
@@ -39,15 +39,19 @@ async def insert(doc: dict) -> dict:
     return doc
 
 
-async def update(user_id: ObjectId, fields: dict) -> dict | None:
+async def update(user_id: ObjectId, fields: dict) -> dict:
+    """Actualiza y devuelve el documento. NotFound si se eliminó entre la lectura y la escritura."""
     try:
-        return await _collection().find_one_and_update(
+        updated = await _collection().find_one_and_update(
             {"_id": user_id},
             {"$set": {**fields, "updated_at": utcnow()}},
             return_document=ReturnDocument.AFTER,
         )
     except DuplicateKeyError as exc:
         raise Conflict(_duplicate_message(exc)) from exc
+    if updated is None:
+        raise NotFound("Usuario no encontrado.")
+    return updated
 
 
 async def search(query_text: str | None, role: str | None, skip: int, limit: int) -> tuple[list[dict], int]:

@@ -38,7 +38,13 @@ onMounted(async () => {
   <section class="auth-section d-flex align-items-center justify-content-center">
     <div class="auth-card p-4 p-lg-5">
       <div class="text-center mb-4">
-        <img v-if="configStore.logoUrl" :src="configStore.logoUrl" width="90" :alt="configStore.hotelName" class="auth-logo" />
+        <img
+          v-if="configStore.logoUrl"
+          :src="configStore.logoUrl"
+          width="90"
+          :alt="configStore.hotelName"
+          class="auth-logo"
+        />
         <font-awesome-icon v-else icon="fa-solid fa-leaf" class="auth-logo-icon" />
         <h3 class="mt-3 mb-2 auth-heading">Verificación de correo</h3>
         <p class="helper-text mb-0">Confirmamos que este correo te pertenece.</p>
@@ -53,8 +59,8 @@ onMounted(async () => {
         <font-awesome-icon icon="fa-solid fa-circle-check" class="status-icon text-success mb-3" />
         <h5 class="fw-bold mb-2">{{ message }}</h5>
         <p v-if="linkedBookings > 0" class="helper-text mb-0">
-          Vinculamos {{ linkedBookings }} {{ linkedBookings === 1 ? "reserva" : "reservas" }} que habías hecho como
-          invitado a tu cuenta.
+          Vinculamos {{ linkedBookings }} {{ linkedBookings === 1 ? "reserva" : "reservas" }} que habías hecho
+          como invitado a tu cuenta.
         </p>
       </div>
 

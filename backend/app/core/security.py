@@ -4,6 +4,7 @@ Contraseñas (pwdlib + Argon2) y JWT de acceso (PyJWT).
 El refresh token NO es un JWT: es un valor opaco aleatorio guardado (hasheado) en la colección
 refresh_tokens, lo que permite rotarlo, revocarlo y detectar su reutilización.
 """
+
 import hashlib
 import secrets
 import uuid
@@ -17,7 +18,7 @@ from backend.app.core.settings import get_settings
 from backend.app.core.time import utcnow
 
 ALGORITHM = "HS256"
-TOKEN_TYPE_ACCESS = "access"
+TOKEN_TYPE_ACCESS = "access"  # noqa: S105 (tipo de token, no un secreto)
 
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128

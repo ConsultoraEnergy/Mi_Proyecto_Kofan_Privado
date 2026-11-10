@@ -44,6 +44,7 @@ S = BookingStatus
 # Serialización
 # ---------------------------------------------------------------------------
 
+
 def _out_fields(doc: dict) -> dict:
     receipt = doc.get("receipt")
     history = doc.get("status_history", [])
@@ -89,6 +90,7 @@ def to_detail(doc: dict) -> BookingDetailOut:
 # ---------------------------------------------------------------------------
 # Utilidades
 # ---------------------------------------------------------------------------
+
 
 async def _bookable_room(room_id: str) -> dict:
     oid = parse_object_id(room_id)
@@ -141,6 +143,7 @@ def _base_doc(room: dict, check_in: date, check_out: date, quote: pricing.Quote)
 # Creación
 # ---------------------------------------------------------------------------
 
+
 async def create_web_booking(form: WebBookingForm, receipt: UploadFile, user: dict | None) -> BookingOut:
     """Reserva desde la web: el precio lo calcula el servidor (5.3) y el comprobante es obligatorio (RN-05)."""
     if form.accept_privacy_policy is not True:
@@ -153,7 +156,9 @@ async def create_web_booking(form: WebBookingForm, receipt: UploadFile, user: di
     doc = {
         **_base_doc(room, form.check_in, form.check_out, quote),
         "user_id": user["_id"] if user else None,
-        "guest": form.model_dump(mode="json", include={"full_name", "email", "phone", "document_type", "document_number"}),
+        "guest": form.model_dump(
+            mode="json", include={"full_name", "email", "phone", "document_type", "document_number"}
+        ),
         "notes": form.notes,
         "status": S.PENDING_VERIFICATION.value,
         "payment_due_at": None,
@@ -186,18 +191,22 @@ async def create_manual_booking(actor: dict, data: ManualBookingIn) -> BookingDe
 
     guest = data.guest.model_dump(mode="json")
     existing_user = await users_repository.get_by_email(guest["email"])
-    doc.update({
-        "user_id": existing_user["_id"] if existing_user and existing_user.get("email_verified") else None,
-        "guest": guest,
-        "companions": [c.model_dump(mode="json") for c in data.companions],
-        "notes": data.notes,
-        "status": S.CONFIRMED.value,
-        "payment_due_at": None,
-        "receipt": None,
-        "source": "manual",
-        "created_by": actor["email"],
-        "status_history": [_history_event(None, S.CONFIRMED.value, actor["email"], "Reserva registrada por el hotel")],
-    })
+    doc.update(
+        {
+            "user_id": existing_user["_id"] if existing_user and existing_user.get("email_verified") else None,
+            "guest": guest,
+            "companions": [c.model_dump(mode="json") for c in data.companions],
+            "notes": data.notes,
+            "status": S.CONFIRMED.value,
+            "payment_due_at": None,
+            "receipt": None,
+            "source": "manual",
+            "created_by": actor["email"],
+            "status_history": [
+                _history_event(None, S.CONFIRMED.value, actor["email"], "Reserva registrada por el hotel")
+            ],
+        }
+    )
     booking = await repository.insert_with_nights(doc, get_settings().booking_code_prefix)
     await audit.record("booking", booking["_id"], "create", actor["email"], label=booking["code"])
     return to_detail(booking)
@@ -206,6 +215,7 @@ async def create_manual_booking(actor: dict, data: ManualBookingIn) -> BookingDe
 # ---------------------------------------------------------------------------
 # Consulta
 # ---------------------------------------------------------------------------
+
 
 async def list_bookings(statuses: list[str] | None, q: str | None, page: int, limit: int) -> BookingPage:
     valid = {s.value for s in BookingStatus}
@@ -250,6 +260,7 @@ async def booked_ranges(room_id: str) -> list[dict]:
 # Comprobantes
 # ---------------------------------------------------------------------------
 
+
 async def receipt_file(user: dict, booking_id: str) -> tuple[Path, str]:
     booking = await _get_or_404(booking_id)
     allowed = _is_owner(user, booking) or has_permission(user["role"], Permission.BOOKINGS_VIEW_RECEIPTS)
@@ -277,7 +288,11 @@ async def upload_receipt(user: dict, booking_id: str, file: UploadFile) -> Booki
     }
     push = None
     if status == S.PENDING_PAYMENT:
-        push = {"status_history": _history_event(status.value, S.PENDING_VERIFICATION.value, user["email"], "Nuevo comprobante")}
+        push = {
+            "status_history": _history_event(
+                status.value, S.PENDING_VERIFICATION.value, user["email"], "Nuevo comprobante"
+            )
+        }
     updated = await repository.update(booking["_id"], fields, expected_status=status.value, push=push)
     if updated is None:
         await storage.delete_private_receipt(stored.key)
@@ -292,18 +307,32 @@ async def upload_receipt(user: dict, booking_id: str, file: UploadFile) -> Booki
 # ---------------------------------------------------------------------------
 
 _NOTIFY = {
-    S.CONFIRMED: ("¡Reserva confirmada!", "success", "bi-check-circle-fill",
-                  "Verificamos tu pago. Tu reserva {code} en '{room}' está confirmada. ¡Te esperamos!"),
-    S.PENDING_PAYMENT: ("Revisa tu comprobante", "warning", "bi-exclamation-triangle-fill",
-                        "No pudimos validar el pago de la reserva {code}: {reason}. Sube un nuevo comprobante."),
+    S.CONFIRMED: (
+        "¡Reserva confirmada!",
+        "success",
+        "bi-check-circle-fill",
+        "Verificamos tu pago. Tu reserva {code} en '{room}' está confirmada. ¡Te esperamos!",
+    ),
+    S.PENDING_PAYMENT: (
+        "Revisa tu comprobante",
+        "warning",
+        "bi-exclamation-triangle-fill",
+        "No pudimos validar el pago de la reserva {code}: {reason}. Sube un nuevo comprobante.",
+    ),
     S.CHECKED_IN: ("¡Bienvenido!", "info", "bi-house-door-fill", "Check-in registrado para la reserva {code}."),
-    S.CHECKED_OUT: ("¡Gracias por tu visita!", "secondary", "bi-check2-all", "Check-out registrado para la reserva {code}."),
+    S.CHECKED_OUT: (
+        "¡Gracias por tu visita!",
+        "secondary",
+        "bi-check2-all",
+        "Check-out registrado para la reserva {code}.",
+    ),
     S.CANCELLED: ("Reserva cancelada", "danger", "bi-x-circle-fill", "La reserva {code} fue cancelada: {reason}"),
 }
 
 
-async def change_status(actor_email: str, booking_id: str | ObjectId, target: BookingStatus,
-                        reason: str | None = None) -> dict:
+async def change_status(
+    actor_email: str, booking_id: str | ObjectId, target: BookingStatus, reason: str | None = None
+) -> dict:
     booking = await repository.get(booking_id) if isinstance(booking_id, ObjectId) else await _get_or_404(booking_id)
     if booking is None:
         raise NotFound("Reserva no encontrada.")
@@ -312,7 +341,9 @@ async def change_status(actor_email: str, booking_id: str | ObjectId, target: Bo
 
     today = hotel_today()
     if target == S.CHECKED_IN and datetime_to_date(booking["check_in"]) > today:
-        raise Conflict("El check-in solo se puede registrar desde la fecha de entrada. Edita las fechas si el huésped llegó antes.")
+        raise Conflict(
+            "El check-in solo se puede registrar desde la fecha de entrada. Edita las fechas si el huésped llegó antes."
+        )
 
     fields: dict = {"status": target.value}
     if target == S.PENDING_PAYMENT:
@@ -321,7 +352,9 @@ async def change_status(actor_email: str, booking_id: str | ObjectId, target: Bo
         fields["payment_due_at"] = None
 
     updated = await repository.update(
-        booking["_id"], fields, expected_status=current.value,
+        booking["_id"],
+        fields,
+        expected_status=current.value,
         push={"status_history": _history_event(current.value, target.value, actor_email, reason)},
     )
     if updated is None:
@@ -336,8 +369,14 @@ async def change_status(actor_email: str, booking_id: str | ObjectId, target: Bo
         await folios.close_for_booking(booking["_id"], actor_email)
         await repository.release_nights(booking["_id"], from_night=today)  # salida anticipada libera noches
 
-    await audit.record("booking", booking["_id"], f"status:{target.value}", actor_email, label=booking["code"],
-                       changes=[{"field": "status", "old": current.value, "new": target.value}])
+    await audit.record(
+        "booking",
+        booking["_id"],
+        f"status:{target.value}",
+        actor_email,
+        label=booking["code"],
+        changes=[{"field": "status", "old": current.value, "new": target.value}],
+    )
 
     if updated.get("user_id") and target in _NOTIFY:
         title, theme, icon, template = _NOTIFY[target]
@@ -346,7 +385,9 @@ async def change_status(actor_email: str, booking_id: str | ObjectId, target: Bo
     return updated
 
 
-async def change_status_by_staff(actor: dict, booking_id: str, target: BookingStatus, reason: str | None) -> BookingDetailOut:
+async def change_status_by_staff(
+    actor: dict, booking_id: str, target: BookingStatus, reason: str | None
+) -> BookingDetailOut:
     return to_detail(await change_status(actor["email"], booking_id, target, reason))
 
 
@@ -357,8 +398,9 @@ async def expire_unpaid_bookings() -> int:
     cancelled = 0
     for booking in await repository.expired_unpaid(utcnow()):
         try:
-            await change_status(SYSTEM_ACTOR, booking["_id"], S.CANCELLED,
-                                f"no recibimos un comprobante válido en {hours} horas")
+            await change_status(
+                SYSTEM_ACTOR, booking["_id"], S.CANCELLED, f"no recibimos un comprobante válido en {hours} horas"
+            )
             cancelled += 1
         except Conflict:
             continue  # alguien la modificó entretanto
@@ -370,6 +412,7 @@ async def expire_unpaid_bookings() -> int:
 # ---------------------------------------------------------------------------
 # Edición (fechas, huésped, acompañantes)
 # ---------------------------------------------------------------------------
+
 
 async def update_booking(actor: dict, booking_id: str, data: BookingUpdate) -> BookingDetailOut:
     booking = await _get_or_404(booking_id)
@@ -396,13 +439,15 @@ async def update_booking(actor: dict, booking_id: str, data: BookingUpdate) -> B
         to_add, to_remove = sorted(new_nights - old_nights), sorted(old_nights - new_nights)
         await repository.reserve_nights(booking["room_id"], booking["_id"], to_add)  # Conflict si choca
         await repository.release_nights(booking["_id"], only=to_remove)
-        fields.update({
-            "check_in": date_to_datetime(new_in),
-            "check_out": date_to_datetime(new_out),
-            "nights": quote.nights,
-            "calculated_amount": quote.total_amount,
-            "total_amount": quote.total_amount,
-        })
+        fields.update(
+            {
+                "check_in": date_to_datetime(new_in),
+                "check_out": date_to_datetime(new_out),
+                "nights": quote.nights,
+                "calculated_amount": quote.total_amount,
+                "total_amount": quote.total_amount,
+            }
+        )
 
     if data.total_amount is not None:
         fields["total_amount"] = round(data.total_amount, 2)
@@ -425,6 +470,7 @@ async def update_booking(actor: dict, booking_id: str, data: BookingUpdate) -> B
         raise Conflict("La reserva fue modificada por otra persona. Recarga e intenta de nuevo.")
 
     await folios.sync_with_booking(updated)
-    await audit.record("booking", booking["_id"], "update", actor["email"], label=booking["code"],
-                       changes=audit.diff(booking, fields))
+    await audit.record(
+        "booking", booking["_id"], "update", actor["email"], label=booking["code"], changes=audit.diff(booking, fields)
+    )
     return to_detail(updated)

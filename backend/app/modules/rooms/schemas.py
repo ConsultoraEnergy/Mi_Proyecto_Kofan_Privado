@@ -12,6 +12,7 @@ Amenity = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, 
 
 class OperationalStatus(StrEnum):
     """Estado operativo (6.5). La ocupación NO se guarda aquí: se deriva de las reservas."""
+
     AVAILABLE = "available"
     CLEANING = "cleaning"
     MAINTENANCE = "maintenance"
@@ -23,6 +24,7 @@ class _Strict(BaseModel):
 
 
 # --- Tipos de habitación (catálogo, reemplaza la detección por regex RN-10) ---
+
 
 class RoomTypeIn(_Strict):
     code: Code
@@ -49,6 +51,7 @@ class RoomTypeOut(BaseModel):
 
 
 # --- Habitaciones ---
+
 
 class RoomIn(_Strict):
     number: RoomNumber

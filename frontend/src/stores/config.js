@@ -10,6 +10,8 @@ const DEFAULTS = {
   hotel_name: "Hotel Kawari",
   tagline: "",
   logo_url: "",
+  legal_name: "",
+  tax_id: "",
   contact_email: "",
   phone: "",
   whatsapp_number: "",
