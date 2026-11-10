@@ -7,6 +7,7 @@ import { useConfigStore } from "@/stores/config";
 import { updateMe, changePassword, deactivateMe } from "@/api/users";
 import { errorMessage } from "@/api/apiClient";
 import PasswordInput from "@/components/form/PasswordInput.vue";
+import { brandColor } from "@/utils/brandColors";
 
 const MIN_PASSWORD = 8;
 
@@ -14,14 +15,9 @@ const auth = useAuthStore();
 const configStore = useConfigStore();
 const router = useRouter();
 
-const getBrandColor = (token, fallback) =>
-  typeof window !== "undefined"
-    ? getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
-    : fallback;
-
-const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
-const COLOR_APPLE = getBrandColor("--k-apple", "#8BCF5B");
-const COLOR_DANGER = getBrandColor("--k-danger", "#c92a2a");
+const COLOR_FOREST = brandColor("--k-forest", "#0f3b2a");
+const COLOR_APPLE = brandColor("--k-apple", "#8BCF5B");
+const COLOR_DANGER = brandColor("--k-danger", "#c92a2a");
 
 // --- Datos personales ---
 const formData = ref({ full_name: "", phone: "", country: "", city: "" });

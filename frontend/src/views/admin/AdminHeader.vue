@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import Swal from "sweetalert2";
 import { ROLE_LABELS } from "@/constants/booking";
 import ActivityNotificationsModal from "@/components/ActivityNotificationsModal.vue";
+import { brandColor } from "@/utils/brandColors";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -12,13 +13,8 @@ const router = useRouter();
 const roleLabel = computed(() => ROLE_LABELS[auth.user?.role] || "");
 const showNotifications = ref(false);
 
-const getBrandColor = (token, fallback) =>
-  typeof window !== "undefined"
-    ? getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
-    : fallback;
-
-const COLOR_APPLE = getBrandColor("--k-apple", "#8BCF5B");
-const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
+const COLOR_APPLE = brandColor("--k-apple", "#8BCF5B");
+const COLOR_FOREST = brandColor("--k-forest", "#0f3b2a");
 
 const handleLogout = async () => {
   const result = await Swal.fire({

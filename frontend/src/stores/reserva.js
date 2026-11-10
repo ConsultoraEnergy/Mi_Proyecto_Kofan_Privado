@@ -14,14 +14,10 @@ import { createWebBooking } from "@/api/bookings";
 import { useConfigStore } from "@/stores/config";
 import { statusLabel } from "@/constants/booking";
 import { fromIsoDate, nightsBetween, toIsoDate } from "@/utils/format";
+import { brandColor } from "@/utils/brandColors";
 
-const getBrandColor = (token, fallback) =>
-  typeof window !== "undefined"
-    ? getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
-    : fallback;
-
-const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
-const COLOR_DANGER = getBrandColor("--k-danger", "#e74c3c");
+const COLOR_FOREST = brandColor("--k-forest", "#0f3b2a");
+const COLOR_DANGER = brandColor("--k-danger", "#e74c3c");
 
 export const RECEIPT_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 export const RECEIPT_MAX_MB = 5;

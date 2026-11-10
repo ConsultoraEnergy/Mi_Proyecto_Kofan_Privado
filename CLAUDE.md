@@ -430,7 +430,7 @@ Tamaño estimado: **S** ≤ ½ día · **M** 1-2 días · **L** 3-5 días.
 - [x] **M** GitHub Actions: lint, tests con cobertura mínima (≥70 % en `modules/bookings` y `auth`), build del frontend. *(2026-11-10: `.github/workflows/ci.yml`; también exige 85 % total y construye las imágenes Docker)*
 - [x] **S** Logging estructurado + *request-id*; reemplazar todos los `print`; integrar Sentry. *(2026-11-10: `core/logging.py`, `core/sentry.py`; Sentry opcional vía `SENTRY_DSN`)*
 - [x] **S** Endpoints `/health` y `/ready`. *(2026-11-10: `api/health.py`, fuera de `/api/v1`)*
-- [ ] **M** Refactorizar `BookingsManager.vue`, `RoomsManager.vue`, `Home.vue`, `AboutUs.vue` en componentes + composables; usar la capa `services/` para todas las llamadas HTTP.
+- [x] **M** Refactorizar `BookingsManager.vue`, `RoomsManager.vue`, `Home.vue`, `AboutUs.vue` en componentes + composables; usar la capa `services/` para todas las llamadas HTTP. *(2026-11-10: la capa HTTP es `src/api/` y ya la usaban todas las vistas. Composables en `src/composables/` (`useBookingsBoard`, `useBookingActions`, `useRoomsInventory`, `useRoomForm`, `useRoomCatalog`, `useHotelLocation`, `usePagination`…); componentes en `src/components/{common,admin/bookings,admin/rooms,home,about}/`; textos estáticos de Inicio/Nosotros centralizados en `src/content/publicContent.js` como paso previo a 9.6; 21 pruebas unitarias nuevas)*
 
 ### Fase 3 — Producción y escalabilidad
 - [ ] **M** Object storage (R2/S3) con bucket público (fotos vía CDN) y privado (comprobantes con URL firmada); generación de miniaturas WebP.

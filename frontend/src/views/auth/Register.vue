@@ -7,18 +7,14 @@ import { useConfigStore } from "@/stores/config";
 import { register } from "@/api/auth";
 import { errorMessage } from "@/api/apiClient";
 import FormularioRegistro from "@/components/FormularioRegistro.vue";
+import { brandColor } from "@/utils/brandColors";
 
 const auth = useAuthStore();
 const configStore = useConfigStore();
 const router = useRouter();
 const isLoading = ref(false);
 
-const getBrandColor = (token, fallback) =>
-  typeof window !== "undefined"
-    ? getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
-    : fallback;
-
-const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
+const COLOR_FOREST = brandColor("--k-forest", "#0f3b2a");
 
 /** Recibe el formulario (ya con los nombres de la API) y crea la cuenta. */
 const registrarCliente = async (datos) => {

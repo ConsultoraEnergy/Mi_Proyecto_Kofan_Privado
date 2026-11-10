@@ -10,13 +10,9 @@ import { DOCUMENT_TYPES, PERMISSIONS } from "@/constants/booking";
 import { formatMoney, fromIsoDate, toIsoDate, nightsBetween } from "@/utils/format";
 import { DatePicker as VDatePicker } from "v-calendar";
 import "v-calendar/style.css";
+import { brandColor } from "@/utils/brandColors";
 
-const getBrandColor = (token, fallback) =>
-  typeof window !== "undefined"
-    ? getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback
-    : fallback;
-
-const COLOR_FOREST = getBrandColor("--k-forest", "#0f3b2a");
+const COLOR_FOREST = brandColor("--k-forest", "#0f3b2a");
 
 const props = defineProps({
   show: Boolean,
